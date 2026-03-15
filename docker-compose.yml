@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: kanban-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kanban_db}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-Dinesh}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-kanban_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kanban-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kanban-backend
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-kanban_db}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-Dinesh}
+      JWT_SECRET: ${JWT_SECRET:-myVeryLongSecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLong2024}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - kanban-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: kanban-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - kanban-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  kanban-network:
+    driver: bridge
