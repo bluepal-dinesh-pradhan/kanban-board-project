@@ -1,0 +1,35 @@
+package com.example.demo.dto;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.example.demo.entity.Card;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data @AllArgsConstructor @NoArgsConstructor
+public class CardDto {
+    private Long id;
+    private String title;
+    private String description;
+    private LocalDate dueDate;
+    private int position;
+    private Long columnId;
+    private List<LabelDto> labels;
+    private int commentCount;
+    private LocalDateTime createdAt;
+
+    public static CardDto from(Card c) {
+        List<LabelDto> labels = c.getLabels().stream()
+                .map(l -> new LabelDto(l.getId(), l.getColor(), l.getText()))
+                .collect(Collectors.toList());
+        return new CardDto(c.getId(), c.getTitle(), c.getDescription(),
+                c.getDueDate(), c.getPosition(), c.getColumn().getId(),
+                labels, c.getComments().size(), c.getCreatedAt());
+    }
+}
+
