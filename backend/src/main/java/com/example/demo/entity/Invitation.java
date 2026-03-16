@@ -22,6 +22,11 @@ public class Invitation {
     @Column(nullable = false)
     private String email;
 
+    @Column(unique = true)
+    private String token;
+
+    private LocalDateTime expiresAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BoardMember.Role role;

@@ -6,7 +6,10 @@ import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
 const LoginPage = () => {
   const [searchParams] = useSearchParams()
   const invitedEmail = searchParams.get('email')
-  const isInvited = searchParams.get('invited') === 'true'
+  const inviteToken = searchParams.get('inviteToken')
+  const redirect = searchParams.get('redirect')
+  const invitedFlag = searchParams.get('invited') === 'true'
+  const isInvited = invitedFlag || !!inviteToken
   
   const [formData, setFormData] = useState({
     email: invitedEmail || '',
@@ -17,6 +20,16 @@ const LoginPage = () => {
   const [errors, setErrors] = useState({})
   
   const { login } = useAuth()
+
+  const registerLink = (() => {
+    const params = new URLSearchParams()
+    if (invitedEmail) params.set('email', invitedEmail)
+    if (inviteToken) params.set('inviteToken', inviteToken)
+    if (redirect) params.set('redirect', redirect)
+    if (invitedFlag) params.set('invited', 'true')
+    const qs = params.toString()
+    return qs ? `/register?${qs}` : '/register'
+  })()
 
   const validateForm = () => {
     const newErrors = {}
@@ -199,7 +212,7 @@ const LoginPage = () => {
                 <p className="text-sm text-gray-600">
                   Don't have an account?{' '}
                   <Link 
-                    to={isInvited ? "/register?invited=true" : "/register"}
+                    to={registerLink}
                     className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
                   >
                     Sign up

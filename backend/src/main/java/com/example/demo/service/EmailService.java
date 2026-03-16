@@ -27,7 +27,7 @@ public class EmailService {
     @Value("${app.mail.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists) {
+    public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists, String invitationToken) {
         if (!mailEnabled || mailSender == null) {
             log.info("Email disabled. Invitation for {} saved to DB only.", toEmail);
             return false;
@@ -45,7 +45,7 @@ public class EmailService {
                 helper.setText(buildMemberAddedHtml(toEmail, inviterName, boardTitle, role), true);
             } else {
                 helper.setSubject("You've been invited to join \"" + boardTitle + "\" on Kanban Board");
-                helper.setText(buildInvitationHtml(inviterName, boardTitle, role, toEmail), true);
+                helper.setText(buildInvitationHtml(inviterName, boardTitle, role, toEmail, invitationToken), true);
             }
             
             mailSender.send(message);
@@ -57,10 +57,15 @@ public class EmailService {
         }
     }
 
-    private String buildInvitationHtml(String inviterName, String boardTitle, String role, String toEmail) {
+    private String buildInvitationHtml(String inviterName, String boardTitle, String role, String toEmail, String invitationToken) {
+        if (invitationToken == null || invitationToken.isBlank()) {
+            throw new RuntimeException("Invitation token is missing");
+        }
         String encodedEmail = URLEncoder.encode(toEmail, StandardCharsets.UTF_8);
-        String registerUrl = frontendUrl + "/register?email=" + encodedEmail + "&invited=true";
-        String loginUrl = frontendUrl + "/login?invited=true";
+        String encodedToken = URLEncoder.encode(invitationToken, StandardCharsets.UTF_8);
+        String redirectParam = URLEncoder.encode("/invite?token=" + invitationToken, StandardCharsets.UTF_8);
+        String inviteUrl = frontendUrl + "/invite?token=" + encodedToken;
+        String loginUrl = frontendUrl + "/login?inviteToken=" + encodedToken + "&email=" + encodedEmail + "&redirect=" + redirectParam;
         
         return """
             <!DOCTYPE html>
@@ -115,7 +120,7 @@ public class EmailService {
                 </div>
             </body>
             </html>
-            """.formatted(inviterName, boardTitle, role.toLowerCase(), registerUrl, loginUrl, inviterName);
+            """.formatted(inviterName, boardTitle, role.toLowerCase(), inviteUrl, loginUrl, inviterName);
     }
 
     private String buildMemberAddedHtml(String toEmail, String inviterName, String boardTitle, String role) {

@@ -4,10 +4,13 @@ import com.example.demo.dto.*;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service @RequiredArgsConstructor
 public class BoardService {
@@ -19,6 +22,9 @@ public class BoardService {
     private final InvitationRepository invitationRepository;
     private final ActivityService activityService;
     private final EmailService emailService;
+
+    @Value("${app.invitation.expires-days:14}")
+    private long invitationExpiresDays;
 
     @Transactional
     public BoardDto create(BoardRequest req, Long userId) {
@@ -88,7 +94,8 @@ public class BoardService {
                 inviter.getFullName(), 
                 board.getTitle(), 
                 req.getRole().name(), 
-                true
+                true,
+                null
             );
             
             activityService.log(board, inviter, "INVITED_MEMBER", "USER", invitee.getId());
@@ -106,6 +113,8 @@ public class BoardService {
                     .role(req.getRole())
                     .invitedBy(inviter)
                     .status(Invitation.InvitationStatus.PENDING)
+                    .token(UUID.randomUUID().toString())
+                    .expiresAt(LocalDateTime.now().plusDays(invitationExpiresDays))
                     .build();
             invitationRepository.save(invitation);
             
@@ -115,7 +124,8 @@ public class BoardService {
                 inviter.getFullName(), 
                 board.getTitle(), 
                 req.getRole().name(), 
-                false
+                false,
+                invitation.getToken()
             );
             
             activityService.log(board, inviter, "SENT_INVITATION", "INVITATION", invitation.getId());

@@ -27,6 +27,10 @@ export const AuthProvider = ({ children }) => {
         console.error('Error parsing user data:', error)
         logout()
       }
+    } else {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
     }
     setLoading(false)
   }, [])
@@ -43,7 +47,7 @@ export const AuthProvider = ({ children }) => {
       
       // Check if this was an invitation login
       const urlParams = new URLSearchParams(window.location.search)
-      const isInvited = urlParams.get('invited') === 'true'
+      const isInvited = urlParams.get('invited') === 'true' || !!urlParams.get('inviteToken')
       
       if (isInvited) {
         toast.success('Welcome! You now have access to the board.')
@@ -69,7 +73,7 @@ export const AuthProvider = ({ children }) => {
       
       // Check if this was an invitation registration
       const urlParams = new URLSearchParams(window.location.search)
-      const isInvited = urlParams.get('invited') === 'true'
+      const isInvited = urlParams.get('invited') === 'true' || !!urlParams.get('inviteToken')
       
       if (isInvited) {
         toast.success('Account created! You now have access to the board.')
@@ -97,7 +101,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     loading,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!localStorage.getItem('accessToken'),
   }
 
   return (

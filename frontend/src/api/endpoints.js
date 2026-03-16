@@ -20,6 +20,12 @@ export const boardAPI = {
   getBoardActivity: (boardId) => api.get(`/boards/${boardId}/activity`),
 }
 
+// Invitation endpoints
+export const invitationAPI = {
+  getInvitation: (token) => api.get(`/invitations/${encodeURIComponent(token)}`),
+  acceptInvitation: (token) => api.post(`/invitations/${encodeURIComponent(token)}/accept`),
+}
+
 // Column endpoints
 export const columnAPI = {
   createColumn: (boardId, columnData) => api.post(`/boards/${boardId}/columns`, columnData),

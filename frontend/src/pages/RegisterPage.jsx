@@ -8,7 +8,10 @@ const RegisterPage = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const invitedEmail = searchParams.get('email')
-  const isInvited = searchParams.get('invited') === 'true'
+  const inviteToken = searchParams.get('inviteToken')
+  const redirect = searchParams.get('redirect')
+  const invitedFlag = searchParams.get('invited') === 'true'
+  const isInvited = invitedFlag || !!inviteToken
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -35,7 +38,12 @@ const RegisterPage = () => {
           
           if (userExists) {
             // User already exists, redirect to login with invitation parameters
-            navigate(`/login?invited=true`, { replace: true })
+            const params = new URLSearchParams()
+            params.set('email', invitedEmail)
+            if (inviteToken) params.set('inviteToken', inviteToken)
+            if (redirect) params.set('redirect', redirect)
+            if (invitedFlag) params.set('invited', 'true')
+            navigate(`/login?${params.toString()}`, { replace: true })
             return
           }
         } catch (error) {
@@ -48,7 +56,17 @@ const RegisterPage = () => {
     }
 
     checkUserExists()
-  }, [isInvited, invitedEmail, navigate])
+  }, [isInvited, invitedEmail, inviteToken, redirect, invitedFlag, navigate])
+
+  const loginLink = (() => {
+    const params = new URLSearchParams()
+    if (invitedEmail) params.set('email', invitedEmail)
+    if (inviteToken) params.set('inviteToken', inviteToken)
+    if (redirect) params.set('redirect', redirect)
+    if (invitedFlag) params.set('invited', 'true')
+    const qs = params.toString()
+    return qs ? `/login?${qs}` : '/login'
+  })()
 
   const getPasswordStrength = (password) => {
     if (password.length < 6) return { strength: 'weak', color: 'bg-red-500', text: 'Weak' }
@@ -359,7 +377,7 @@ const RegisterPage = () => {
                 <p className="text-sm text-gray-600">
                   Already have an account?{' '}
                   <Link 
-                    to={isInvited ? "/login?invited=true" : "/login"}
+                    to={loginLink}
                     className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
                   >
                     Sign in
