@@ -9,6 +9,7 @@ import org.springframework.security.authentication.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service @RequiredArgsConstructor
@@ -38,6 +39,9 @@ public class AuthService {
                 user.getEmail(), Invitation.InvitationStatus.PENDING);
         
         for (Invitation invitation : pendingInvitations) {
+            if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+                continue;
+            }
             if (!boardMemberRepository.existsByBoardIdAndUserId(
                     invitation.getBoard().getId(), user.getId())) {
                 BoardMember member = BoardMember.builder()

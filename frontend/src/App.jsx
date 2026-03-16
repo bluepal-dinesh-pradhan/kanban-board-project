@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import BoardListPage from './pages/BoardListPage'
 import BoardPage from './pages/BoardPage'
+import InvitePage from './pages/InvitePage'
 
 // Private Route component
 const PrivateRoute = ({ children }) => {
@@ -23,6 +24,7 @@ const PrivateRoute = ({ children }) => {
 // Public Route component (redirect if authenticated)
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth()
+  const location = useLocation()
   
   if (loading) {
     return (
@@ -32,7 +34,25 @@ const PublicRoute = ({ children }) => {
     )
   }
   
-  return !isAuthenticated ? children : <Navigate to="/boards" />
+  if (!isAuthenticated) {
+    return children
+  }
+
+  const params = new URLSearchParams(location.search)
+  let redirect = params.get('redirect')
+  if (redirect) {
+    try {
+      redirect = decodeURIComponent(redirect)
+    } catch {
+      redirect = null
+    }
+  }
+
+  if (redirect && redirect.startsWith('/')) {
+    return <Navigate to={redirect} />
+  }
+
+  return <Navigate to="/boards" />
 }
 
 function App() {
@@ -56,6 +76,7 @@ function App() {
           </PublicRoute>
         } 
       />
+      <Route path="/invite" element={<InvitePage />} />
       <Route 
         path="/boards" 
         element={
