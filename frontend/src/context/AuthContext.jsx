@@ -41,7 +41,16 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData))
       setUser(userData)
       
-      toast.success('Login successful!')
+      // Check if this was an invitation login
+      const urlParams = new URLSearchParams(window.location.search)
+      const isInvited = urlParams.get('invited') === 'true'
+      
+      if (isInvited) {
+        toast.success('Welcome! You now have access to the board.')
+      } else {
+        toast.success('Login successful!')
+      }
+      
       return response.data
     } catch (error) {
       throw error
@@ -58,7 +67,16 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData))
       setUser(userData)
       
-      toast.success('Registration successful!')
+      // Check if this was an invitation registration
+      const urlParams = new URLSearchParams(window.location.search)
+      const isInvited = urlParams.get('invited') === 'true'
+      
+      if (isInvited) {
+        toast.success('Account created! You now have access to the board.')
+      } else {
+        toast.success('Registration successful!')
+      }
+      
       return response.data
     } catch (error) {
       throw error

@@ -23,6 +23,9 @@ public class Board {
     private User owner;
 
     @Builder.Default
+    private String background = "#0079BF";
+
+    @Builder.Default
     private boolean archived = false;
 
     @Column(nullable = false, updatable = false)

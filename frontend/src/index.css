@@ -2,6 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Primary Brand Colors */
+  --brand-primary: #0079BF;
+  --brand-primary-dark: #026AA7;
+  --brand-primary-light: #E4F0F6;
+  --brand-gradient: linear-gradient(135deg, #0079BF 0%, #5BA4CF 100%);
+
+  /* Board Background Options */
+  --board-bg-blue: linear-gradient(180deg, #0079BF 0%, #5BA4CF 100%);
+  --board-bg-green: linear-gradient(180deg, #519839 0%, #61BD4F 100%);
+  --board-bg-purple: linear-gradient(180deg, #89609E 0%, #CD8DE5 100%);
+  --board-bg-red: linear-gradient(180deg, #B04632 0%, #EB5A46 100%);
+  --board-bg-orange: linear-gradient(180deg, #D29034 0%, #FFAB4A 100%);
+
+  /* Neutral Colors */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F4F5F7;
+  --bg-column: #EBECF0;
+  --text-primary: #172B4D;
+  --text-secondary: #5E6C84;
+  --text-muted: #A5ADBA;
+  --border: #DFE1E6;
+
+  /* Card Label Colors (Trello Standard) */
+  --label-green: #61BD4F;
+  --label-yellow: #F2D600;
+  --label-orange: #FF9F1A;
+  --label-red: #EB5A46;
+  --label-purple: #C377E0;
+  --label-blue: #0079BF;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -9,4 +46,79 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-secondary);
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  .card-hover {
+    transition: all var(--transition-normal);
+  }
+  
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .card-dragging {
+    transform: rotate(3deg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    opacity: 0.9;
+  }
+
+  .brand-gradient {
+    background: var(--brand-gradient);
+  }
+
+  .board-bg-blue {
+    background: var(--board-bg-blue);
+  }
+
+  .board-bg-green {
+    background: var(--board-bg-green);
+  }
+
+  .board-bg-purple {
+    background: var(--board-bg-purple);
+  }
+
+  .board-bg-red {
+    background: var(--board-bg-red);
+  }
+
+  .board-bg-orange {
+    background: var(--board-bg-orange);
+  }
+
+  .glassmorphism {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .text-shadow {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
 }

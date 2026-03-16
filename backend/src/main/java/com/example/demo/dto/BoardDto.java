@@ -12,9 +12,19 @@ public class BoardDto {
     private String title;
     private UserDto owner;
     private String role;
+    private String background;
+    private int memberCount;
     private LocalDateTime createdAt;
 
     public static BoardDto from(Board b, String role) {
-        return new BoardDto(b.getId(), b.getTitle(), UserDto.from(b.getOwner()), role, b.getCreatedAt());
+        return new BoardDto(
+                b.getId(), 
+                b.getTitle(), 
+                UserDto.from(b.getOwner()), 
+                role, 
+                b.getBackground(),
+                b.getMembers().size(),
+                b.getCreatedAt()
+        );
     }
 }
