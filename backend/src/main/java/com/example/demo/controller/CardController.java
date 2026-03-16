@@ -61,6 +61,13 @@ public class CardController {
                 .body(ApiResponse.ok("Comment added", commentService.addComment(id, req, user.getId())));
     }
 
+    @PatchMapping("/cards/{id}/archive")
+    public ResponseEntity<ApiResponse<CardDto>> archiveCard(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.ok("Card archived", cardService.archive(id, user.getId())));
+    }
+
     @GetMapping("/cards/{id}/comments")
     public ResponseEntity<ApiResponse<List<CommentDto>>> getComments(
             @PathVariable Long id,

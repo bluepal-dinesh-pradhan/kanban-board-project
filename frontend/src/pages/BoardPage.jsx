@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
+import { getGradientFromName } from '../utils/colors'
+import { timeAgo } from '../utils/timeAgo'
 import CardModal from '../components/CardModal'
 import ActivityFeed from '../components/ActivityFeed'
 import InviteModal from '../components/InviteModal'
+import Skeleton from '../components/common/Skeleton'
 import toast from 'react-hot-toast'
 
 const BoardPage = () => {
@@ -17,7 +20,7 @@ const BoardPage = () => {
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
   const [columnTitle, setColumnTitle] = useState('')
-  const [cardForm, setCardForm] = useState({ title: '', description: '', dueDate: '' })
+  const [cardTitle, setCardTitle] = useState('')
   const queryClient = useQueryClient()
 
   const { data: columns, isLoading } = useQuery({
@@ -27,6 +30,38 @@ const BoardPage = () => {
       return response.data.data
     }
   })
+
+  // Board info - for now using defaults, can be fetched separately if needed
+  const boardTitle = 'Board' // Default title
+  const boardBg = getGradientFromName(boardTitle)
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      
+      switch (e.key.toLowerCase()) {
+        case 'n':
+          if (columns?.length > 0) {
+            setShowCreateCard(columns[0].id)
+          }
+          break
+        case 'b':
+          setShowCreateColumn(true)
+          break
+        case 'escape':
+          setSelectedCard(null)
+          setShowActivityFeed(false)
+          setShowInviteModal(false)
+          setShowCreateCard(null)
+          setShowCreateColumn(false)
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [columns])
 
   const createColumnMutation = useMutation({
     mutationFn: async (title) => {
@@ -38,19 +73,25 @@ const BoardPage = () => {
       setShowCreateColumn(false)
       setColumnTitle('')
       toast.success('Column created successfully!')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to create column')
     }
   })
 
   const createCardMutation = useMutation({
-    mutationFn: async ({ columnId, cardData }) => {
-      const response = await cardAPI.createCard(boardId, { ...cardData, columnId })
+    mutationFn: async ({ columnId, title }) => {
+      const response = await cardAPI.createCard(boardId, { title, columnId })
       return response.data.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
       setShowCreateCard(null)
-      setCardForm({ title: '', description: '', dueDate: '' })
+      setCardTitle('')
       toast.success('Card created successfully!')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to create card')
     }
   })
 
@@ -63,7 +104,6 @@ const BoardPage = () => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
     },
     onError: () => {
-      // Revert optimistic update
       queryClient.invalidateQueries(['board', boardId, 'columns'])
       toast.error('Failed to move card')
     }
@@ -86,15 +126,11 @@ const BoardPage = () => {
     if (currentData) {
       const newData = [...currentData]
       
-      // Find source and destination columns
       const sourceColIndex = newData.findIndex(col => col.id === parseInt(source.droppableId.replace('col-', '')))
       const destColIndex = newData.findIndex(col => col.id === targetColumnId)
       
       if (sourceColIndex !== -1 && destColIndex !== -1) {
-        // Remove card from source
         const [movedCard] = newData[sourceColIndex].cards.splice(source.index, 1)
-        
-        // Add card to destination
         newData[destColIndex].cards.splice(destination.index, 0, {
           ...movedCard,
           columnId: targetColumnId,
@@ -111,6 +147,7 @@ const BoardPage = () => {
       newPosition: destination.index
     })
   }
+
   const handleCreateColumn = (e) => {
     e.preventDefault()
     if (columnTitle.trim()) {
@@ -120,21 +157,12 @@ const BoardPage = () => {
 
   const handleCreateCard = (e) => {
     e.preventDefault()
-    if (cardForm.title.trim()) {
+    if (cardTitle.trim()) {
       createCardMutation.mutate({
         columnId: showCreateCard,
-        cardData: {
-          title: cardForm.title.trim(),
-          description: cardForm.description.trim() || null,
-          dueDate: cardForm.dueDate || null
-        }
+        title: cardTitle.trim()
       })
     }
-  }
-
-  const formatDate = (date) => {
-    if (!date) return null
-    return new Date(date).toLocaleDateString()
   }
 
   const isOverdue = (dueDate) => {
@@ -144,194 +172,241 @@ const BoardPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="bg-white/80 backdrop-blur-md border-b border-white/20 px-6 py-4">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-6 w-48" />
+            <div className="flex space-x-3">
+              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-x-auto p-6">
+          <div className="flex space-x-6 min-w-max">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="w-80 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/30">
+                <Skeleton className="h-6 w-32 mb-4" />
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, j) => (
+                    <div key={j} className="bg-white rounded-lg p-3 shadow-sm">
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className={`h-screen flex flex-col bg-gradient-to-br ${boardBg} relative`}>
+      <div className="absolute inset-0 bg-black/20" />
+      
       {/* Toolbar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-gray-900">Board</h1>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold text-white drop-shadow-lg">
+              {boardTitle}
+            </h1>
+            <div className="flex items-center space-x-2 text-white/80 text-sm">
+              <FiStar className="w-4 h-4" />
+              <span>1 member</span>
+            </div>
+          </div>
           <div className="flex space-x-3">
             <button
               onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
             >
               <FiUsers className="mr-2 h-4 w-4" />
               Invite
             </button>
             <button
               onClick={() => setShowActivityFeed(true)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
             >
               <FiActivity className="mr-2 h-4 w-4" />
               Activity
+            </button>
+            <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg border border-white/30 transition-all duration-200 hover:scale-105">
+              <FiMoreHorizontal className="h-4 w-4" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Board Content */}
-      <div className="flex-1 overflow-x-auto p-6">
+      <div className="relative z-10 flex-1 overflow-x-auto p-6">
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex space-x-6 min-w-max">
+          <div className="flex space-x-6 min-w-max pb-6">
             {columns?.map((column) => (
-              <div key={column.id} className="w-80 bg-gray-100 rounded-lg p-4 flex-shrink-0">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-medium text-gray-900">{column.title}</h3>
-                  <span className="text-sm text-gray-500">{column.cards.length}</span>
+              <div key={column.id} className="w-80 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-white/30 flex-shrink-0">
+                <div className="p-4 border-b border-gray-200/50">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-800">{column.title}</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                        {column.cards.length}
+                      </span>
+                      <button className="p-1 hover:bg-gray-100 rounded">
+                        <FiMoreHorizontal className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <Droppable droppableId={`col-${column.id}`}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`space-y-3 min-h-[200px] ${
-                        snapshot.isDraggingOver ? 'bg-blue-50 rounded-md p-2' : ''
-                      }`}
-                    >
-                      {column.cards.map((card, index) => (
-                        <Draggable
-                          key={card.id}
-                          draggableId={`card-${card.id}`}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => setSelectedCard(card.id)}
-                              className={`bg-white p-3 rounded-md shadow-sm hover:shadow-md cursor-pointer border ${
-                                snapshot.isDragging ? 'rotate-2 shadow-lg' : ''
-                              }`}
-                            >
-                              <h4 className="font-medium text-gray-900 mb-2">{card.title}</h4>
-                              
-                              {card.description && (
-                                <p className="text-sm text-gray-600 mb-2 line-clamp-2">{card.description}</p>
-                              )}
+                <div className="p-4">
+                  <Droppable droppableId={`col-${column.id}`}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`space-y-3 min-h-[100px] transition-colors duration-200 ${
+                          snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg p-2' : ''
+                        }`}
+                      >
+                        {column.cards.map((card, index) => (
+                          <Draggable
+                            key={card.id}
+                            draggableId={`card-${card.id}`}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                onClick={() => setSelectedCard(card.id)}
+                                className={`group bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer border border-gray-200 transition-all duration-200 ${
+                                  snapshot.isDragging ? 'rotate-2 shadow-xl scale-105' : 'hover:scale-102'
+                                }`}
+                              >
+                                <div className="p-4">
+                                  {card.labels?.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-3">
+                                      {card.labels.map((label) => (
+                                        <div
+                                          key={label.id}
+                                          className="h-2 w-10 rounded-full"
+                                          style={{ backgroundColor: label.color }}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  <h4 className="font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                    {card.title}
+                                  </h4>
+                                  
+                                  {card.description && (
+                                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                      {card.description}
+                                    </p>
+                                  )}
 
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {card.labels?.map((label) => (
-                                  <span
-                                    key={label.id}
-                                    className="inline-block px-2 py-1 text-xs rounded-full text-white"
-                                    style={{ backgroundColor: label.color }}
-                                  >
-                                    {label.text}
-                                  </span>
-                                ))}
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <div className="flex items-center space-x-3">
+                                      {card.dueDate && (
+                                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
+                                          isOverdue(card.dueDate) 
+                                            ? 'bg-red-100 text-red-700' 
+                                            : 'bg-yellow-100 text-yellow-700'
+                                        }`}>
+                                          <FiCalendar className="w-3 h-3" />
+                                          <span>{timeAgo(card.dueDate)}</span>
+                                        </div>
+                                      )}
+                                      
+                                      {card.commentCount > 0 && (
+                                        <div className="flex items-center space-x-1 text-gray-500">
+                                          <FiMessageSquare className="w-3 h-3" />
+                                          <span>{card.commentCount}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-
-                              <div className="flex justify-between items-center text-xs text-gray-500">
-                                {card.dueDate && (
-                                  <span className={isOverdue(card.dueDate) ? 'text-red-500 font-medium' : ''}>
-                                    Due: {formatDate(card.dueDate)}
-                                  </span>
-                                )}
-                                
-                                {card.commentCount > 0 && (
-                                  <span className="flex items-center">
-                                    💬 {card.commentCount}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-
-                {/* Add Card Form */}
-                {showCreateCard === column.id ? (
-                  <div className="bg-white p-3 rounded-md shadow-sm border mt-3">
-                    <form onSubmit={handleCreateCard}>
-                      <textarea
-                        value={cardForm.title}
-                        onChange={(e) => setCardForm(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder="Enter a title for this card..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows={2}
-                        autoFocus
-                      />
-                      
-                      <textarea
-                        value={cardForm.description}
-                        onChange={(e) => setCardForm(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Add a description (optional)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mt-2"
-                        rows={2}
-                      />
-
-                      <input
-                        type="date"
-                        value={cardForm.dueDate}
-                        onChange={(e) => setCardForm(prev => ({ ...prev, dueDate: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-2"
-                      />
-
-                      <div className="flex space-x-2 mt-3">
-                        <button
-                          type="submit"
-                          disabled={!cardForm.title.trim() || createCardMutation.isPending}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
-                        >
-                          {createCardMutation.isPending ? 'Adding...' : 'Add Card'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowCreateCard(null)
-                            setCardForm({ title: '', description: '', dueDate: '' })
-                          }}
-                          className="text-gray-600 hover:text-gray-800 px-3 py-1 text-sm"
-                        >
-                          Cancel
-                        </button>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
                       </div>
-                    </form>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowCreateCard(column.id)}
-                    className="w-full mt-3 p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-md text-sm flex items-center"
-                  >
-                    <FiPlus className="mr-1 h-4 w-4" />
-                    Add a card
-                  </button>
-                )}
+                    )}
+                  </Droppable>
+
+                  {/* Add Card Form */}
+                  {showCreateCard === column.id ? (
+                    <div className="mt-3">
+                      <form onSubmit={handleCreateCard}>
+                        <textarea
+                          value={cardTitle}
+                          onChange={(e) => setCardTitle(e.target.value)}
+                          placeholder="Enter a title for this card..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows={3}
+                          autoFocus
+                        />
+                        <div className="flex items-center space-x-2 mt-2">
+                          <button
+                            type="submit"
+                            disabled={!cardTitle.trim() || createCardMutation.isPending}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                          >
+                            {createCardMutation.isPending ? 'Adding...' : 'Add Card'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreateCard(null)
+                              setCardTitle('')
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <FiX className="w-4 h-4 text-gray-500" />
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowCreateCard(column.id)}
+                      className="w-full mt-3 p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg text-sm flex items-center transition-colors group"
+                    >
+                      <FiPlus className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                      Add a card
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
             {/* Add Column */}
             <div className="w-80 flex-shrink-0">
               {showCreateColumn ? (
-                <div className="bg-gray-100 rounded-lg p-4">
+                <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
                   <form onSubmit={handleCreateColumn}>
                     <input
                       type="text"
                       value={columnTitle}
                       onChange={(e) => setColumnTitle(e.target.value)}
-                      placeholder="Enter column title"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter column title..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       autoFocus
                     />
-                    <div className="flex space-x-2 mt-3">
+                    <div className="flex items-center space-x-2 mt-3">
                       <button
                         type="submit"
                         disabled={!columnTitle.trim() || createColumnMutation.isPending}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
                       >
-                        Add Column
+                        {createColumnMutation.isPending ? 'Adding...' : 'Add Column'}
                       </button>
                       <button
                         type="button"
@@ -339,9 +414,9 @@ const BoardPage = () => {
                           setShowCreateColumn(false)
                           setColumnTitle('')
                         }}
-                        className="text-gray-600 hover:text-gray-800 px-3 py-1 text-sm"
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                       >
-                        Cancel
+                        <FiX className="w-4 h-4 text-gray-500" />
                       </button>
                     </div>
                   </form>
@@ -349,15 +424,20 @@ const BoardPage = () => {
               ) : (
                 <button
                   onClick={() => setShowCreateColumn(true)}
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 p-4 rounded-lg text-left flex items-center"
+                  className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-4 rounded-xl border border-white/30 text-left flex items-center transition-all duration-200 hover:scale-105"
                 >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add another column
+                  <FiPlus className="mr-2 h-5 w-5" />
+                  Add another list
                 </button>
               )}
             </div>
           </div>
         </DragDropContext>
+      </div>
+
+      {/* Keyboard shortcuts hint */}
+      <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
+        Press <kbd className="bg-white/20 px-1 rounded">N</kbd> for new card, <kbd className="bg-white/20 px-1 rounded">B</kbd> for new board, <kbd className="bg-white/20 px-1 rounded">Esc</kbd> to close
       </div>
 
       {/* Modals */}

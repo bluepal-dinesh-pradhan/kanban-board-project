@@ -30,4 +30,10 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest req) {
         return ResponseEntity.ok(ApiResponse.ok("Token refreshed", authService.refresh(req)));
     }
+
+    @GetMapping("/check-user")
+    public ResponseEntity<ApiResponse<Boolean>> checkUserExists(@RequestParam String email) {
+        boolean exists = authService.userExists(email);
+        return ResponseEntity.ok(ApiResponse.ok("User existence checked", exists));
+    }
 }

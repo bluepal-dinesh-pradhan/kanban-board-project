@@ -33,13 +33,28 @@ public class BoardController {
                 .body(ApiResponse.ok("Board created", boardService.create(req, user.getId())));
     }
 
+    @PatchMapping("/{id}")
+    public ResponseEntity<ApiResponse<BoardDto>> updateBoard(
+            @PathVariable Long id,
+            @Valid @RequestBody BoardUpdateRequest req,
+            @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.ok("Board updated", boardService.updateBoard(id, req, user.getId())));
+    }
+
     @PostMapping("/{id}/members")
-    public ResponseEntity<ApiResponse<String>> inviteMember(
+    public ResponseEntity<ApiResponse<InviteResponse>> inviteMember(
             @PathVariable Long id,
             @Valid @RequestBody InviteRequest req,
             @AuthenticationPrincipal UserPrincipal user) {
-        boardService.inviteMember(id, req, user.getId());
-        return ResponseEntity.ok(ApiResponse.ok("Member invited", "Member invited successfully"));
+        InviteResponse response = boardService.inviteMember(id, req, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok(response.getMessage(), response));
+    }
+
+    @GetMapping("/{id}/members")
+    public ResponseEntity<ApiResponse<BoardMembersDto>> getBoardMembers(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.ok(boardService.getBoardMembers(id, user.getId())));
     }
 
     @GetMapping("/{id}/columns")
@@ -55,6 +70,15 @@ public class BoardController {
             @AuthenticationPrincipal UserPrincipal user) {
         boardService.checkAccess(id, user.getId());
         return ResponseEntity.ok(ApiResponse.ok(activityService.getByBoard(id)));
+    }
+
+    @DeleteMapping("/{id}/invitations/{invitationId}")
+    public ResponseEntity<ApiResponse<String>> cancelInvitation(
+            @PathVariable Long id,
+            @PathVariable Long invitationId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        boardService.cancelInvitation(id, invitationId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Invitation cancelled"));
     }
 }
 

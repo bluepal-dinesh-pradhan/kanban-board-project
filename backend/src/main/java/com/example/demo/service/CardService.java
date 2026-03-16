@@ -103,6 +103,21 @@ public class CardService {
         return CardDto.from(card);
     }
 
+    @Transactional
+    public CardDto archive(Long cardId, Long userId) {
+        Card card = cardRepository.findById(cardId).orElseThrow();
+        Long boardId = card.getColumn().getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        card.setArchived(true);
+        card = cardRepository.save(card);
+
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
+        activityService.log(board, user, "ARCHIVED_CARD", "CARD", card.getId());
+        return CardDto.from(card);
+    }
+
     public List<CommentDto> getComments(Long cardId) {
         Card card = cardRepository.findById(cardId).orElseThrow();
         return card.getComments().stream().map(CommentDto::from).collect(Collectors.toList());
