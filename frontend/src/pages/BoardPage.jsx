@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
@@ -21,9 +21,14 @@ const BoardPage = () => {
   const [showActivityFeed, setShowActivityFeed] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
   const [columnTitle, setColumnTitle] = useState('')
   const [cardTitle, setCardTitle] = useState('')
+  const [filterKeyword, setFilterKeyword] = useState('')
+  const [selectedLabels, setSelectedLabels] = useState([])
+  const [selectedDueDates, setSelectedDueDates] = useState([])
+  const [selectedMembers, setSelectedMembers] = useState([])
   const queryClient = useQueryClient()
 
   const { data: columns, isLoading } = useQuery({
@@ -58,6 +63,79 @@ const BoardPage = () => {
   const isViewer = board?.role === 'VIEWER'
   const memberCount = membersData?.members?.length || 1
   const memberLabel = memberCount === 1 ? 'member' : 'members'
+
+  const labelKey = (label) => `${label.color || ''}|${label.text || ''}`
+
+  const availableLabels = useMemo(() => {
+    const map = new Map()
+    columns?.forEach((column) => {
+      column.cards?.forEach((card) => {
+        card.labels?.forEach((label) => {
+          const key = labelKey(label)
+          if (!map.has(key)) {
+            map.set(key, label)
+          }
+        })
+      })
+    })
+    return Array.from(map.values())
+  }, [columns])
+
+  const activeFilterCount = [
+    filterKeyword.trim().length > 0,
+    selectedLabels.length > 0,
+    selectedDueDates.length > 0,
+    selectedMembers.length > 0
+  ].filter(Boolean).length
+
+  const matchesDueFilter = (card) => {
+    if (selectedDueDates.length === 0) return true
+    const today = new Date()
+    const dueDate = card.dueDate ? new Date(card.dueDate) : null
+
+    return selectedDueDates.some((filter) => {
+      if (filter === 'noDates') {
+        return !dueDate
+      }
+      if (!dueDate) return false
+
+      const diffMs = dueDate.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+      if (filter === 'overdue') return diffDays < 0
+      if (filter === 'nextDay') return diffDays >= 0 && diffDays <= 1
+      if (filter === 'nextWeek') return diffDays >= 0 && diffDays <= 7
+      if (filter === 'nextMonth') return diffDays >= 0 && diffDays <= 30
+      return false
+    })
+  }
+
+  const matchesMemberFilter = (card) => {
+    if (selectedMembers.length === 0) return true
+    if (!card.members || card.members.length === 0) return false
+    return card.members.some((member) => selectedMembers.includes(member.id))
+  }
+
+  const matchesLabelFilter = (card) => {
+    if (selectedLabels.length === 0) return true
+    return card.labels?.some((label) => selectedLabels.includes(labelKey(label)))
+  }
+
+  const matchesKeywordFilter = (card) => {
+    if (!filterKeyword.trim()) return true
+    const needle = filterKeyword.trim().toLowerCase()
+    const haystack = `${card.title || ''} ${card.description || ''}`.toLowerCase()
+    return haystack.includes(needle)
+  }
+
+  const matchesFilters = (card) => {
+    return (
+      matchesKeywordFilter(card) &&
+      matchesLabelFilter(card) &&
+      matchesDueFilter(card) &&
+      matchesMemberFilter(card)
+    )
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -194,6 +272,17 @@ const BoardPage = () => {
     }
   }
 
+  const clearFilters = () => {
+    setFilterKeyword('')
+    setSelectedLabels([])
+    setSelectedDueDates([])
+    setSelectedMembers([])
+  }
+
+  const toggleFilterValue = (value, setter) => {
+    setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value])
+  }
+
   const isOverdue = (dueDate) => {
     if (!dueDate) return false
     return new Date(dueDate) < new Date()
@@ -264,6 +353,22 @@ const BoardPage = () => {
               </button>
             )}
             <button
+              onClick={() => setShowFilterPanel(true)}
+              className={`inline-flex items-center px-3 py-2 rounded-lg border transition-all duration-200 ${
+                activeFilterCount > 0
+                  ? 'bg-blue-500/90 border-blue-300 text-white'
+                  : 'bg-white/20 border-white/30 text-white hover:bg-white/30'
+              }`}
+            >
+              <FiFilter className="mr-2 h-4 w-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-5 px-1.5 rounded-full text-xs font-semibold bg-white text-blue-700">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setShowActivityFeed(true)}
               className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
             >
@@ -281,16 +386,31 @@ const BoardPage = () => {
 
       {/* Board Content */}
       <div className="relative z-10 flex-1 overflow-x-auto p-6">
+        {activeFilterCount > 0 && (
+          <div className="mb-4 rounded-lg bg-blue-500/90 text-white px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-medium">
+              Showing cards matching {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={clearFilters}
+              className="text-sm font-semibold underline underline-offset-4"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex space-x-6 min-w-max pb-6">
-            {columns?.map((column) => (
+            {columns?.map((column) => {
+              const visibleCardCount = column.cards.filter(matchesFilters).length
+              return (
               <div key={column.id} className="w-80 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-white/30 flex-shrink-0">
                 <div className="p-4 border-b border-gray-200/50">
                   <div className="flex justify-between items-center">
                     <h3 className="font-semibold text-gray-800">{column.title}</h3>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                        {column.cards.length}
+                        {visibleCardCount}
                       </span>
                       {!isViewer && (
                         <button className="p-1 hover:bg-gray-100 rounded">
@@ -311,7 +431,9 @@ const BoardPage = () => {
                           snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg p-2' : ''
                         }`}
                       >
-                        {column.cards.map((card, index) => (
+                        {column.cards.map((card, index) => {
+                          const isMatch = matchesFilters(card)
+                          return (
                           <Draggable
                             key={card.id}
                             draggableId={`card-${card.id}`}
@@ -326,7 +448,7 @@ const BoardPage = () => {
                                 onClick={() => setSelectedCard(card.id)}
                                 className={`group bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer border border-gray-200 transition-all duration-200 ${
                                   snapshot.isDragging ? 'rotate-2 shadow-xl scale-105' : 'hover:scale-102'
-                                }`}
+                                } ${isMatch ? 'opacity-100' : 'opacity-20'} transition-opacity`}
                               >
                                 <div className="p-4">
                                   {card.labels?.length > 0 && (
@@ -376,7 +498,8 @@ const BoardPage = () => {
                               </div>
                             )}
                           </Draggable>
-                        ))}
+                          )
+                        })}
                         {provided.placeholder}
                       </div>
                     )}
@@ -426,7 +549,7 @@ const BoardPage = () => {
                   ) : null}
                 </div>
               </div>
-            ))}
+            )})}
 
             {/* Add Column */}
             <div className="w-80 flex-shrink-0">
@@ -477,6 +600,136 @@ const BoardPage = () => {
           </div>
         </DragDropContext>
       </div>
+
+      {showFilterPanel && (
+        <div className="fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowFilterPanel(false)}
+          ></div>
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl border-l border-gray-200 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="flex items-center space-x-2">
+                <FiFilter className="w-5 h-5 text-gray-700" />
+                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+              </div>
+              <button
+                onClick={() => setShowFilterPanel(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                  Keyword
+                </label>
+                <input
+                  value={filterKeyword}
+                  onChange={(e) => setFilterKeyword(e.target.value)}
+                  placeholder="Search cards"
+                  className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                  Labels
+                </div>
+                <div className="space-y-2">
+                  {availableLabels.length === 0 && (
+                    <p className="text-sm text-gray-500">No labels yet</p>
+                  )}
+                  {availableLabels.map((label) => {
+                    const key = labelKey(label)
+                    const checked = selectedLabels.includes(key)
+                    return (
+                      <label key={key} className="flex items-center gap-3 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleFilterValue(key, setSelectedLabels)}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs text-white"
+                          style={{ backgroundColor: label.color }}
+                        >
+                          {label.text || label.color}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                  Due date
+                </div>
+                <div className="space-y-2 text-sm text-gray-700">
+                  {[
+                    { value: 'overdue', label: 'Overdue' },
+                    { value: 'nextDay', label: 'Due in next day' },
+                    { value: 'nextWeek', label: 'Due in next week' },
+                    { value: 'nextMonth', label: 'Due in next month' },
+                    { value: 'noDates', label: 'No dates' },
+                  ].map((item) => (
+                    <label key={item.value} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedDueDates.includes(item.value)}
+                        onChange={() => toggleFilterValue(item.value, setSelectedDueDates)}
+                        className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                  Members
+                </div>
+                <div className="space-y-2 text-sm text-gray-700">
+                  {membersData?.members?.map((member) => (
+                    <label key={member.id} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedMembers.includes(member.id)}
+                        onChange={() => toggleFilterValue(member.id, setSelectedMembers)}
+                        className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                      />
+                      <span>{member.user.fullName}</span>
+                    </label>
+                  ))}
+                  {!membersData?.members?.length && (
+                    <p className="text-sm text-gray-500">No members yet</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 px-5 py-4 flex justify-between items-center">
+              <button
+                onClick={clearFilters}
+                className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={() => setShowFilterPanel(false)}
+                className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
         {/* Keyboard shortcuts hint */}
         <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">

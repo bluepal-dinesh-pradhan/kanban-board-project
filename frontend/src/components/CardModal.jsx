@@ -219,7 +219,14 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
               </form>
             ) : (
               <div className="flex-1">
-                <h2 className="text-xl font-medium text-gray-900 mb-2">{card.title}</h2>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <h2 className="text-xl font-medium text-gray-900">{card.title}</h2>
+                  {isViewer && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                      View only
+                    </span>
+                  )}
+                </div>
                 {card.description && (
                   <p className="text-gray-700 mb-4 whitespace-pre-wrap">{card.description}</p>
                 )}
@@ -267,7 +274,11 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
               <FiMessageSquare className="h-4 w-4 text-gray-400" />
               <h3 className="font-medium text-gray-900">Comments</h3>
             </div>
-            
+            {isViewer && (
+              <p className="text-xs text-gray-500 mb-3">
+                You have view-only access. Comments and edits are disabled.
+              </p>
+            )}
             {!isViewer && (
               <form onSubmit={handleAddComment} className="mb-4">
                 <textarea
