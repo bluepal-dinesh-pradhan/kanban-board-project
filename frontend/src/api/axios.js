@@ -53,9 +53,9 @@ api.interceptors.response.use(
 
     // Handle API errors with toast notifications
     if (error.response?.data?.message) {
-      toast.error(error.response.data.message)
+      toast.error(error.response.data.message, { id: 'api-error' })
     } else if (error.message) {
-      toast.error(error.message)
+      toast.error(error.message, { id: 'api-error' })
     }
 
     return Promise.reject(error)

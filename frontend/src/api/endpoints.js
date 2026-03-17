@@ -16,6 +16,7 @@ export const boardAPI = {
   getBoardColumns: (boardId) => api.get(`/boards/${boardId}/columns`),
   getBoardMembers: (boardId) => api.get(`/boards/${boardId}/members`),
   inviteMember: (boardId, inviteData) => api.post(`/boards/${boardId}/members`, inviteData),
+  removeMember: (boardId, memberId) => api.delete(`/boards/${boardId}/members/${memberId}`),
   cancelInvitation: (boardId, invitationId) => api.delete(`/boards/${boardId}/invitations/${invitationId}`),
   getBoardActivity: (boardId) => api.get(`/boards/${boardId}/activity`),
 }

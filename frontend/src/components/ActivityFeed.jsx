@@ -23,6 +23,8 @@ const ActivityFeed = ({ boardId, onClose }) => {
       'ADDED_COMMENT': FiMessageSquare,
       'INVITED_MEMBER': FiUserPlus,
       'SENT_INVITATION': FiUserPlus,
+      'RESENT_INVITATION': FiUserPlus,
+      'REMOVED_MEMBER': FiUserPlus,
       'ARCHIVED_CARD': FiArchive,
     }
     return iconMap[action] || FiActivity
@@ -38,6 +40,8 @@ const ActivityFeed = ({ boardId, onClose }) => {
       'ADDED_COMMENT': 'text-gray-600 bg-gray-100',
       'INVITED_MEMBER': 'text-green-600 bg-green-100',
       'SENT_INVITATION': 'text-green-600 bg-green-100',
+      'RESENT_INVITATION': 'text-green-600 bg-green-100',
+      'REMOVED_MEMBER': 'text-red-600 bg-red-100',
       'ARCHIVED_CARD': 'text-red-600 bg-red-100',
     }
     return colorMap[action] || 'text-gray-600 bg-gray-100'
@@ -53,6 +57,8 @@ const ActivityFeed = ({ boardId, onClose }) => {
       'ADDED_COMMENT': 'commented on a card',
       'INVITED_MEMBER': 'added a member to this board',
       'SENT_INVITATION': 'sent an invitation',
+      'RESENT_INVITATION': 'resent an invitation',
+      'REMOVED_MEMBER': 'removed a member from this board',
       'ARCHIVED_CARD': 'archived a card',
     }
     return actionMap[activity.action] || activity.action.toLowerCase().replace('_', ' ')

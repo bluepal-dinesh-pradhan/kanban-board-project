@@ -80,5 +80,14 @@ public class BoardController {
         boardService.cancelInvitation(id, invitationId, user.getId());
         return ResponseEntity.ok(ApiResponse.ok("Invitation cancelled"));
     }
+
+    @DeleteMapping("/{id}/members/{memberId}")
+    public ResponseEntity<ApiResponse<String>> removeMember(
+            @PathVariable Long id,
+            @PathVariable Long memberId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        boardService.removeMember(id, memberId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Member removed"));
+    }
 }
 
