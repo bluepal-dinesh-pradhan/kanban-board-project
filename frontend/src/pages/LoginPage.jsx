@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
+import { FiEye, FiEyeOff } from 'react-icons/fi'
 
 const LoginPage = () => {
   const [searchParams] = useSearchParams()
@@ -73,154 +73,166 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Brand Section */}
-      <div className="hidden lg:flex lg:w-1/2 brand-gradient relative overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-10"></div>
-        <div className="relative z-10 flex flex-col justify-center items-center text-white p-12">
-          <div className="text-center">
-            <h1 className="text-5xl font-bold mb-4 text-shadow">Kanban</h1>
-            <p className="text-xl mb-8 text-shadow">Collaborate. Organize. Achieve.</p>
-            
-            {/* Floating Cards Animation */}
-            <div className="relative w-64 h-48 mx-auto">
-              <div className="absolute top-0 left-0 w-16 h-20 bg-white bg-opacity-20 rounded-lg transform rotate-12 animate-pulse"></div>
-              <div className="absolute top-4 right-0 w-16 h-20 bg-white bg-opacity-30 rounded-lg transform -rotate-6 animate-pulse delay-300"></div>
-              <div className="absolute bottom-0 left-8 w-16 h-20 bg-white bg-opacity-25 rounded-lg transform rotate-3 animate-pulse delay-700"></div>
-              <div className="absolute bottom-4 right-8 w-16 h-20 bg-white bg-opacity-35 rounded-lg transform -rotate-12 animate-pulse delay-1000"></div>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
+      <div className="hidden md:block fixed bottom-0 left-0 pointer-events-none opacity-70">
+        <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="158" width="190" height="58" rx="14" fill="#CFE4FF" />
+          <rect x="32" y="140" width="170" height="20" rx="10" fill="#B9D8FF" />
+          <rect x="40" y="70" width="120" height="70" rx="14" fill="#E9F2FF" />
+          <rect x="52" y="86" width="96" height="8" rx="4" fill="#7CB5FF" />
+          <rect x="52" y="100" width="64" height="8" rx="4" fill="#A7D0FF" />
+          <rect x="170" y="80" width="90" height="64" rx="14" fill="#E2E8FF" />
+          <rect x="180" y="96" width="70" height="8" rx="4" fill="#9DB6FF" />
+          <rect x="180" y="110" width="54" height="8" rx="4" fill="#B4C7FF" />
+          <rect x="210" y="40" width="70" height="36" rx="12" fill="#E9D5FF" />
+          <rect x="216" y="50" width="44" height="8" rx="4" fill="#A855F7" />
+          <rect x="18" y="44" width="70" height="40" rx="12" fill="#E0F2FE" />
+          <path d="M28 70H76" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" />
+          <circle cx="40" cy="62" r="5" fill="#38BDF8" />
+          <circle cx="86" cy="64" r="18" fill="#FBD38D" />
+          <rect x="68" y="82" width="36" height="40" rx="12" fill="#7DA9FF" />
+          <rect x="60" y="94" width="18" height="18" rx="6" fill="#5EEAD4" />
+          <circle cx="148" cy="86" r="16" fill="#C4B5FD" />
+          <rect x="134" y="102" width="30" height="34" rx="10" fill="#60A5FA" />
+          <rect x="268" y="110" width="54" height="20" rx="10" fill="#DBEAFE" />
+          <rect x="276" y="116" width="30" height="8" rx="4" fill="#60A5FA" />
+          <path d="M12 226H328" stroke="#BBD7FF" strokeWidth="6" strokeLinecap="round" />
+        </svg>
       </div>
-
-      {/* Right Side - Form Section */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-2xl p-8">
-            {/* Invitation Banner */}
-            {isInvited && (
-              <div style={{background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', color: '#1E40AF', fontSize: '14px'}}>
-                You've been invited to a board! Sign in to access it.
-              </div>
-            )}
-
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Sign in to Kanban</h2>
-              <p className="text-sm text-gray-500">Enter your credentials to access your boards</p>
+      <div className="hidden md:block fixed bottom-0 right-0 pointer-events-none opacity-70">
+        <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="170" y="150" width="130" height="66" rx="14" fill="#FFE4E6" />
+          <rect x="180" y="162" width="46" height="40" rx="10" fill="#FDBA74" />
+          <rect x="232" y="154" width="50" height="50" rx="10" fill="#93C5FD" />
+          <rect x="242" y="166" width="30" height="8" rx="4" fill="#60A5FA" />
+          <rect x="242" y="180" width="26" height="8" rx="4" fill="#38BDF8" />
+          <rect x="70" y="132" width="60" height="70" rx="16" fill="#FDE68A" />
+          <circle cx="100" cy="104" r="18" fill="#FCA5A5" />
+          <rect x="92" y="122" width="20" height="20" rx="6" fill="#FB7185" />
+          <rect x="250" y="96" width="60" height="38" rx="12" fill="#E0F2FE" />
+          <rect x="258" y="106" width="38" height="8" rx="4" fill="#60A5FA" />
+          <rect x="258" y="120" width="26" height="8" rx="4" fill="#38BDF8" />
+          <rect x="120" y="86" width="84" height="46" rx="14" fill="#E9F2FF" />
+          <rect x="130" y="100" width="64" height="8" rx="4" fill="#A7C5FF" />
+          <rect x="130" y="114" width="40" height="8" rx="4" fill="#C7D7FF" />
+          <path d="M150 134C170 112 196 110 220 96C244 82 266 84 298 68" stroke="#FB7185" strokeWidth="6" strokeLinecap="round" />
+          <circle cx="298" cy="68" r="10" fill="#FB7185" />
+          <rect x="184" y="72" width="70" height="20" rx="10" fill="#FECACA" />
+          <rect x="40" y="210" width="260" height="6" rx="3" fill="#FBCFE8" />
+        </svg>
+      </div>
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+          <div className="flex flex-col items-center mb-6">
+            <div className="h-10 w-10 rounded-lg bg-[#0052CC] flex items-center justify-center text-white font-semibold mb-3">
+              K
             </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiMail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`
-                      appearance-none relative block w-full pl-10 pr-3 py-3 h-12
-                      border ${errors.email ? 'border-red-300 ring-red-100' : 'border-gray-300'} 
-                      placeholder-gray-500 text-gray-900 rounded-lg 
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                      transition-all duration-200
-                    `}
-                    placeholder="Enter your email"
-                  />
-                </div>
-                {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiLock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`
-                      appearance-none relative block w-full pl-10 pr-10 py-3 h-12
-                      border ${errors.password ? 'border-red-300 ring-red-100' : 'border-gray-300'} 
-                      placeholder-gray-500 text-gray-900 rounded-lg 
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                      transition-all duration-200
-                    `}
-                    placeholder="Enter your password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    ) : (
-                      <FiEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="
-                  group relative w-full flex justify-center py-3 px-4 h-12
-                  border border-transparent text-sm font-medium rounded-lg text-white 
-                  brand-gradient hover:shadow-lg
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
-                  disabled:opacity-60 disabled:cursor-not-allowed
-                  transition-all duration-200 transform hover:scale-105
-                "
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Signing in...
-                  </div>
-                ) : (
-                  'Sign in'
-                )}
-              </button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">OR</span>
-                </div>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Don't have an account?{' '}
-                  <Link 
-                    to={registerLink}
-                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
-                  >
-                    Sign up
-                  </Link>
-                </p>
-              </div>
-            </form>
+            <h2 className="text-2xl font-semibold text-slate-900">Log in</h2>
+            <p className="text-sm text-slate-500 mt-1">Use your email and password to continue.</p>
           </div>
+
+          {isInvited && (
+            <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              You&apos;ve been invited to a board! Log in to access it.
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email
+              </label>
+              <div className="relative">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`
+                    appearance-none relative block w-full px-3 py-3 h-11
+                    border ${errors.email ? 'border-red-300 ring-red-100' : 'border-slate-300'}
+                    placeholder-slate-400 text-slate-900 rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                    transition-all duration-200
+                  `}
+                  placeholder="you@company.com"
+                />
+              </div>
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`
+                    appearance-none relative block w-full px-3 pr-10 py-3 h-11
+                    border ${errors.password ? 'border-red-300 ring-red-100' : 'border-slate-300'}
+                    placeholder-slate-400 text-slate-900 rounded-lg
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                    transition-all duration-200
+                  `}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <FiEyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+                  ) : (
+                    <FiEye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
+                  )}
+                </button>
+              </div>
+              {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="
+                group relative w-full flex justify-center py-3 px-4 h-12
+                border border-transparent text-sm font-semibold rounded-lg text-white
+                bg-[#0052CC] hover:bg-[#0747A6]
+                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                disabled:opacity-60 disabled:cursor-not-allowed
+                transition-all duration-200
+              "
+            >
+              {loading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Logging in...
+                </div>
+              ) : (
+                'Log in'
+              )}
+            </button>
+
+            <div className="text-center pt-1">
+              <p className="text-sm text-slate-600">
+                Don&apos;t have an account?{' '}
+                <Link
+                  to={registerLink}
+                  className="font-semibold text-blue-600 hover:text-blue-500 transition-colors duration-200"
+                >
+                  Create one
+                </Link>
+              </p>
+            </div>
+          </form>
         </div>
       </div>
     </div>
