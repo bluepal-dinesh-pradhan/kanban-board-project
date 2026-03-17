@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import LandingPage from './pages/LandingPage'
 import BoardListPage from './pages/BoardListPage'
 import BoardPage from './pages/BoardPage'
 import InvitePage from './pages/InvitePage'
@@ -56,8 +57,6 @@ const PublicRoute = ({ children }) => {
 }
 
 function App() {
-  const { isAuthenticated } = useAuth()
-
   return (
     <Routes>
       <Route 
@@ -73,6 +72,14 @@ function App() {
         element={
           <PublicRoute>
             <RegisterPage />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/" 
+        element={
+          <PublicRoute>
+            <LandingPage />
           </PublicRoute>
         } 
       />
@@ -92,10 +99,6 @@ function App() {
             <BoardPage />
           </PrivateRoute>
         } 
-      />
-      <Route 
-        path="/" 
-        element={<Navigate to={isAuthenticated ? "/boards" : "/login"} />} 
       />
     </Routes>
   )
