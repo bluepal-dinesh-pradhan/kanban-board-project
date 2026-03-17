@@ -13,7 +13,7 @@ const LABEL_COLORS = [
   '#8b5cf6', // purple
 ]
 
-const CardModal = ({ cardId, onClose }) => {
+const CardModal = ({ cardId, onClose, isViewer = false }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
@@ -61,7 +61,7 @@ const CardModal = ({ cardId, onClose }) => {
       queryClient.invalidateQueries(['card', cardId])
       queryClient.invalidateQueries(['board'])
       setIsEditing(false)
-      toast.success('Card updated successfully!')
+      toast.success('Card updated successfully!', { id: 'card-updated' })
     }
   })
 
@@ -73,11 +73,12 @@ const CardModal = ({ cardId, onClose }) => {
     onSuccess: () => {
       queryClient.invalidateQueries(['card', cardId, 'comments'])
       setNewComment('')
-      toast.success('Comment added!')
+      toast.success('Comment added!', { id: 'comment-added' })
     }
   })
 
   const handleSave = (e) => {
+    if (isViewer) return
     e.preventDefault()
     updateCardMutation.mutate({
       title: formData.title.trim(),
@@ -89,6 +90,7 @@ const CardModal = ({ cardId, onClose }) => {
   }
 
   const handleAddComment = (e) => {
+    if (isViewer) return
     e.preventDefault()
     if (newComment.trim()) {
       addCommentMutation.mutate(newComment.trim())
@@ -96,6 +98,7 @@ const CardModal = ({ cardId, onClose }) => {
   }
 
   const handleAddLabel = () => {
+    if (isViewer) return
     if (newLabel.text.trim()) {
       setFormData(prev => ({
         ...prev,
@@ -106,6 +109,7 @@ const CardModal = ({ cardId, onClose }) => {
   }
 
   const handleRemoveLabel = (labelId) => {
+    if (isViewer) return
     setFormData(prev => ({
       ...prev,
       labels: prev.labels.filter(label => label.id !== labelId)
@@ -239,12 +243,14 @@ const CardModal = ({ cardId, onClose }) => {
                   </div>
                 )}
                 
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  Edit
-                </button>
+                {!isViewer && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
             )}
             
@@ -262,22 +268,24 @@ const CardModal = ({ cardId, onClose }) => {
               <h3 className="font-medium text-gray-900">Comments</h3>
             </div>
             
-            <form onSubmit={handleAddComment} className="mb-4">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Write a comment..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-              />
-              <button
-                type="submit"
-                disabled={!newComment.trim() || addCommentMutation.isPending}
-                className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm disabled:opacity-50"
-              >
-                Add Comment
-              </button>
-            </form>
+            {!isViewer && (
+              <form onSubmit={handleAddComment} className="mb-4">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+                <button
+                  type="submit"
+                  disabled={!newComment.trim() || addCommentMutation.isPending}
+                  className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm disabled:opacity-50"
+                >
+                  Add Comment
+                </button>
+              </form>
+            )}
 
             <div className="space-y-3">
               {comments?.map((comment) => (

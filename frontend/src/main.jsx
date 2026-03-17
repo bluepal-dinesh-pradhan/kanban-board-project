@@ -15,7 +15,7 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
     mutations: {
-      retry: 1,
+      retry: 0,
     },
   },
 })

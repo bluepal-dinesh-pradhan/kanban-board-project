@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
-import { getGradientFromName } from '../utils/colors'
+import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
 import CardModal from '../components/CardModal'
 import ActivityFeed from '../components/ActivityFeed'
 import InviteModal from '../components/InviteModal'
 import Skeleton from '../components/common/Skeleton'
+import Navbar from '../components/Navbar'
+import CreateBoardModal from '../components/CreateBoardModal'
 import toast from 'react-hot-toast'
 
 const BoardPage = () => {
@@ -18,6 +20,7 @@ const BoardPage = () => {
   const [showCreateColumn, setShowCreateColumn] = useState(false)
   const [showActivityFeed, setShowActivityFeed] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
   const [columnTitle, setColumnTitle] = useState('')
   const [cardTitle, setCardTitle] = useState('')
@@ -31,14 +34,36 @@ const BoardPage = () => {
     }
   })
 
-  // Board info - for now using defaults, can be fetched separately if needed
-  const boardTitle = 'Board' // Default title
-  const boardBg = getGradientFromName(boardTitle)
+  const { data: membersData } = useQuery({
+    queryKey: ['boardMembers', boardId],
+    queryFn: async () => {
+      const response = await boardAPI.getBoardMembers(boardId)
+      return response.data.data
+    }
+  })
+
+  const { data: boards } = useQuery({
+    queryKey: ['boards'],
+    queryFn: async () => {
+      const response = await boardAPI.getBoards()
+      return response.data.data
+    },
+    staleTime: 5 * 60 * 1000
+  })
+
+  const board = boards?.find((item) => String(item.id) === String(boardId))
+  const boardTitle = board?.title || 'Board'
+  const boardBg = getBoardGradient(board?.background || '#0079BF')
+  const isOwner = board?.role === 'OWNER'
+  const isViewer = board?.role === 'VIEWER'
+  const memberCount = membersData?.members?.length || 1
+  const memberLabel = memberCount === 1 ? 'member' : 'members'
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (isViewer) return
       
       switch (e.key.toLowerCase()) {
         case 'n':
@@ -61,7 +86,7 @@ const BoardPage = () => {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [columns])
+  }, [columns, isViewer])
 
   const createColumnMutation = useMutation({
     mutationFn: async (title) => {
@@ -72,10 +97,11 @@ const BoardPage = () => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
       setShowCreateColumn(false)
       setColumnTitle('')
-      toast.success('Column created successfully!')
+      toast.success('Column created successfully!', { id: 'column-created' })
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create column')
+      if (error.response?.data?.message) return
+      toast.error('Failed to create column', { id: 'column-create-error' })
     }
   })
 
@@ -88,10 +114,11 @@ const BoardPage = () => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
       setShowCreateCard(null)
       setCardTitle('')
-      toast.success('Card created successfully!')
+      toast.success('Card created successfully!', { id: 'card-created' })
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create card')
+      if (error.response?.data?.message) return
+      toast.error('Failed to create card', { id: 'card-create-error' })
     }
   })
 
@@ -103,13 +130,15 @@ const BoardPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
     },
-    onError: () => {
+    onError: (error) => {
       queryClient.invalidateQueries(['board', boardId, 'columns'])
-      toast.error('Failed to move card')
+      if (error?.response?.data?.message) return
+      toast.error('Failed to move card', { id: 'card-move-error' })
     }
   })
 
   const handleDragEnd = (result) => {
+    if (isViewer) return
     if (!result.destination) return
 
     const { source, destination, draggableId } = result
@@ -204,8 +233,13 @@ const BoardPage = () => {
   }
 
   return (
-    <div className={`h-screen flex flex-col bg-gradient-to-br ${boardBg} relative`}>
-      <div className="absolute inset-0 bg-black/20" />
+    <div className="h-screen flex flex-col">
+      <Navbar onCreate={() => setShowCreateBoardModal(true)} />
+      <div
+        className="flex-1 flex flex-col relative"
+        style={{ backgroundImage: boardBg }}
+      >
+        <div className="absolute inset-0 bg-black/20" />
       
       {/* Toolbar */}
       <div className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
@@ -216,17 +250,19 @@ const BoardPage = () => {
             </h1>
             <div className="flex items-center space-x-2 text-white/80 text-sm">
               <FiStar className="w-4 h-4" />
-              <span>1 member</span>
+              <span>{memberCount} {memberLabel}</span>
             </div>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
-            >
-              <FiUsers className="mr-2 h-4 w-4" />
-              Invite
-            </button>
+            {isOwner && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
+              >
+                <FiUsers className="mr-2 h-4 w-4" />
+                Invite
+              </button>
+            )}
             <button
               onClick={() => setShowActivityFeed(true)}
               className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
@@ -234,9 +270,11 @@ const BoardPage = () => {
               <FiActivity className="mr-2 h-4 w-4" />
               Activity
             </button>
-            <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg border border-white/30 transition-all duration-200 hover:scale-105">
-              <FiMoreHorizontal className="h-4 w-4" />
-            </button>
+            {!isViewer && (
+              <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg border border-white/30 transition-all duration-200 hover:scale-105">
+                <FiMoreHorizontal className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -254,9 +292,11 @@ const BoardPage = () => {
                       <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                         {column.cards.length}
                       </span>
-                      <button className="p-1 hover:bg-gray-100 rounded">
-                        <FiMoreHorizontal className="w-4 h-4 text-gray-500" />
-                      </button>
+                      {!isViewer && (
+                        <button className="p-1 hover:bg-gray-100 rounded">
+                          <FiMoreHorizontal className="w-4 h-4 text-gray-500" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -276,6 +316,7 @@ const BoardPage = () => {
                             key={card.id}
                             draggableId={`card-${card.id}`}
                             index={index}
+                            isDragDisabled={isViewer}
                           >
                             {(provided, snapshot) => (
                               <div
@@ -342,7 +383,7 @@ const BoardPage = () => {
                   </Droppable>
 
                   {/* Add Card Form */}
-                  {showCreateCard === column.id ? (
+                  {!isViewer && showCreateCard === column.id ? (
                     <div className="mt-3">
                       <form onSubmit={handleCreateCard}>
                         <textarea
@@ -374,7 +415,7 @@ const BoardPage = () => {
                         </div>
                       </form>
                     </div>
-                  ) : (
+                  ) : !isViewer ? (
                     <button
                       onClick={() => setShowCreateCard(column.id)}
                       className="w-full mt-3 p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg text-sm flex items-center transition-colors group"
@@ -382,85 +423,93 @@ const BoardPage = () => {
                       <FiPlus className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                       Add a card
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             ))}
 
             {/* Add Column */}
             <div className="w-80 flex-shrink-0">
-              {showCreateColumn ? (
-                <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
-                  <form onSubmit={handleCreateColumn}>
-                    <input
-                      type="text"
-                      value={columnTitle}
-                      onChange={(e) => setColumnTitle(e.target.value)}
-                      placeholder="Enter column title..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                    />
-                    <div className="flex items-center space-x-2 mt-3">
-                      <button
-                        type="submit"
-                        disabled={!columnTitle.trim() || createColumnMutation.isPending}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        {createColumnMutation.isPending ? 'Adding...' : 'Add Column'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCreateColumn(false)
-                          setColumnTitle('')
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <FiX className="w-4 h-4 text-gray-500" />
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowCreateColumn(true)}
-                  className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-4 rounded-xl border border-white/30 text-left flex items-center transition-all duration-200 hover:scale-105"
-                >
-                  <FiPlus className="mr-2 h-5 w-5" />
-                  Add another list
-                </button>
+              {!isViewer && (
+                showCreateColumn ? (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
+                    <form onSubmit={handleCreateColumn}>
+                      <input
+                        type="text"
+                        value={columnTitle}
+                        onChange={(e) => setColumnTitle(e.target.value)}
+                        placeholder="Enter column title..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <div className="flex items-center space-x-2 mt-3">
+                        <button
+                          type="submit"
+                          disabled={!columnTitle.trim() || createColumnMutation.isPending}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                          {createColumnMutation.isPending ? 'Adding...' : 'Add Column'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateColumn(false)
+                            setColumnTitle('')
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <FiX className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowCreateColumn(true)}
+                    className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-4 rounded-xl border border-white/30 text-left flex items-center transition-all duration-200 hover:scale-105"
+                  >
+                    <FiPlus className="mr-2 h-5 w-5" />
+                    Add another list
+                  </button>
+                )
               )}
             </div>
           </div>
         </DragDropContext>
       </div>
 
-      {/* Keyboard shortcuts hint */}
-      <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
-        Press <kbd className="bg-white/20 px-1 rounded">N</kbd> for new card, <kbd className="bg-white/20 px-1 rounded">B</kbd> for new board, <kbd className="bg-white/20 px-1 rounded">Esc</kbd> to close
+        {/* Keyboard shortcuts hint */}
+        <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
+          Press <kbd className="bg-white/20 px-1 rounded">N</kbd> for new card, <kbd className="bg-white/20 px-1 rounded">B</kbd> for new board, <kbd className="bg-white/20 px-1 rounded">Esc</kbd> to close
+        </div>
+
+        {/* Modals */}
+        {selectedCard && (
+          <CardModal
+            cardId={selectedCard}
+            isViewer={isViewer}
+            onClose={() => setSelectedCard(null)}
+          />
+        )}
+
+        {showActivityFeed && (
+          <ActivityFeed
+            boardId={boardId}
+            onClose={() => setShowActivityFeed(false)}
+          />
+        )}
+
+        {showInviteModal && (
+          <InviteModal
+            boardId={boardId}
+            onClose={() => setShowInviteModal(false)}
+          />
+        )}
+
+        {showCreateBoardModal && (
+          <CreateBoardModal onClose={() => setShowCreateBoardModal(false)} />
+        )}
       </div>
-
-      {/* Modals */}
-      {selectedCard && (
-        <CardModal
-          cardId={selectedCard}
-          onClose={() => setSelectedCard(null)}
-        />
-      )}
-
-      {showActivityFeed && (
-        <ActivityFeed
-          boardId={boardId}
-          onClose={() => setShowActivityFeed(false)}
-        />
-      )}
-
-      {showInviteModal && (
-        <InviteModal
-          boardId={boardId}
-          onClose={() => setShowInviteModal(false)}
-        />
-      )}
     </div>
   )
 }

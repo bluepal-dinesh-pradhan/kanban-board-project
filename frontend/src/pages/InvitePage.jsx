@@ -56,8 +56,7 @@ const InvitePage = () => {
       setAccepting(true)
       try {
         const response = await invitationAPI.acceptInvitation(token)
-        const boardId = response.data.data.boardId
-        navigate(`/boards/${boardId}`, { replace: true })
+        navigate('/boards', { replace: true })
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to accept invitation.')
         setAccepting(false)

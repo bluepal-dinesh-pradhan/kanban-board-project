@@ -50,9 +50,9 @@ export const AuthProvider = ({ children }) => {
       const isInvited = urlParams.get('invited') === 'true' || !!urlParams.get('inviteToken')
       
       if (isInvited) {
-        toast.success('Welcome! You now have access to the board.')
+        toast.success('Welcome! You now have access to the board.', { id: 'auth-invite-login' })
       } else {
-        toast.success('Login successful!')
+        toast.success('Login successful!', { id: 'auth-login' })
       }
       
       return response.data
@@ -76,9 +76,9 @@ export const AuthProvider = ({ children }) => {
       const isInvited = urlParams.get('invited') === 'true' || !!urlParams.get('inviteToken')
       
       if (isInvited) {
-        toast.success('Account created! You now have access to the board.')
+        toast.success('Account created! You now have access to the board.', { id: 'auth-invite-register' })
       } else {
-        toast.success('Registration successful!')
+        toast.success('Registration successful!', { id: 'auth-register' })
       }
       
       return response.data
@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     setUser(null)
-    toast.success('Logged out successfully')
+    toast.success('Logged out successfully', { id: 'auth-logout' })
   }
 
   const value = {

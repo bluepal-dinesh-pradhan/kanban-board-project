@@ -13,11 +13,11 @@ const CreateBoardModal = ({ onClose }) => {
   const queryClient = useQueryClient()
 
   const backgroundOptions = [
-    { color: '#0079BF', name: 'Blue' },
-    { color: '#D29034', name: 'Orange' },
-    { color: '#519839', name: 'Green' },
-    { color: '#B04632', name: 'Red' },
-    { color: '#89609E', name: 'Purple' },
+    { color: '#0079BF', name: 'Blue', gradient: 'linear-gradient(135deg, #0079BF 0%, #5BA4CF 100%)' },
+    { color: '#D29034', name: 'Orange', gradient: 'linear-gradient(135deg, #D29034 0%, #FFAB4A 100%)' },
+    { color: '#519839', name: 'Green', gradient: 'linear-gradient(135deg, #519839 0%, #61BD4F 100%)' },
+    { color: '#B04632', name: 'Red', gradient: 'linear-gradient(135deg, #B04632 0%, #EB5A46 100%)' },
+    { color: '#89609E', name: 'Purple', gradient: 'linear-gradient(135deg, #89609E 0%, #CD8DE5 100%)' },
   ]
 
   const createMutation = useMutation({
@@ -27,11 +27,11 @@ const CreateBoardModal = ({ onClose }) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
-      toast.success('Board created successfully!')
+      toast.success('Board created successfully!', { id: 'board-created' })
       onClose()
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create board')
+      toast.error(error.response?.data?.message || 'Failed to create board', { id: 'board-create-error' })
     }
   })
 
@@ -103,7 +103,7 @@ const CreateBoardModal = ({ onClose }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Background color
+                Background
               </label>
               <div className="flex space-x-3">
                 {backgroundOptions.map((option) => (
@@ -118,7 +118,7 @@ const CreateBoardModal = ({ onClose }) => {
                         : 'border-gray-200 hover:border-gray-400'
                       }
                     `}
-                    style={{ backgroundColor: option.color }}
+                    style={{ backgroundImage: option.gradient }}
                     title={option.name}
                   />
                 ))}
