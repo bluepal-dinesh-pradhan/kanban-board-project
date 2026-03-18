@@ -20,6 +20,7 @@ public class CardDto {
     private int position;
     private Long columnId;
     private List<LabelDto> labels;
+    private List<CardReminderDto> reminders;
     private int commentCount;
     private LocalDateTime createdAt;
     private boolean isOverdue;
@@ -29,11 +30,15 @@ public class CardDto {
                 .map(l -> new LabelDto(l.getId(), l.getColor(), l.getText()))
                 .collect(Collectors.toList());
         
+        List<CardReminderDto> reminders = c.getReminders().stream()
+                .map(CardReminderDto::from)
+                .collect(Collectors.toList());
+        
         boolean isOverdue = c.getDueDate() != null && c.getDueDate().isBefore(LocalDate.now());
         
         return new CardDto(c.getId(), c.getTitle(), c.getDescription(),
                 c.getDueDate(), c.getPosition(), c.getColumn().getId(),
-                labels, c.getComments().size(), c.getCreatedAt(), isOverdue);
+                labels, reminders, c.getComments().size(), c.getCreatedAt(), isOverdue);
     }
 }
 

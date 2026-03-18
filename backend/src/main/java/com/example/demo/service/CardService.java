@@ -19,6 +19,7 @@ public class CardService {
     private final UserRepository userRepository;
     private final BoardService boardService;
     private final ActivityService activityService;
+    private final ReminderService reminderService;
 
     @Transactional
     public CardDto create(Long boardId, CardRequest req, Long userId) {
@@ -41,6 +42,17 @@ public class CardService {
 
         Board board = boardRepository.findById(boardId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
+        
+        // Create reminder if due date and reminder type are set
+        if (req.getDueDate() != null && req.getReminderType() != null) {
+            try {
+                CardReminder.ReminderType reminderType = CardReminder.ReminderType.valueOf(req.getReminderType());
+                reminderService.createReminder(card, reminderType);
+            } catch (IllegalArgumentException e) {
+                // Invalid reminder type, ignore
+            }
+        }
+        
         activityService.log(board, user, "CREATED_CARD", "CARD", card.getId());
         return CardDto.from(card);
     }
@@ -69,6 +81,20 @@ public class CardService {
         card = cardRepository.save(card);
         Board board = boardRepository.findById(boardId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
+        
+        // Update reminder if due date and reminder type are set
+        if (req.getDueDate() != null && req.getReminderType() != null) {
+            try {
+                CardReminder.ReminderType reminderType = CardReminder.ReminderType.valueOf(req.getReminderType());
+                reminderService.createReminder(card, reminderType);
+            } catch (IllegalArgumentException e) {
+                // Invalid reminder type, ignore
+            }
+        } else if (req.getDueDate() == null) {
+            // If due date is removed, delete existing reminders
+            reminderService.deleteCardReminders(cardId);
+        }
+        
         activityService.log(board, user, "UPDATED_CARD", "CARD", card.getId());
         return CardDto.from(card);
     }

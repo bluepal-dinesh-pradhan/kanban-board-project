@@ -42,3 +42,11 @@ export const cardAPI = {
   getCardComments: (cardId) => api.get(`/cards/${cardId}/comments`),
   addComment: (cardId, commentData) => api.post(`/cards/${cardId}/comments`, commentData),
 }
+
+// Notification endpoints
+export const notificationAPI = {
+  getNotifications: () => api.get('/notifications'),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (notificationId) => api.patch(`/notifications/${notificationId}/read`),
+  markAllAsRead: () => api.patch('/notifications/mark-all-read'),
+}

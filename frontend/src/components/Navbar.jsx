@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useNotifications } from '../context/NotificationContext'
 import Avatar from './common/Avatar'
-import { FiChevronDown, FiLogOut, FiPlus, FiBell, FiSearch } from 'react-icons/fi'
+import { FiChevronDown, FiLogOut, FiPlus, FiBell, FiSearch, FiCheck, FiCheckCircle } from 'react-icons/fi'
 
 const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
   const { user, logout } = useAuth()
+  const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [internalSearch, setInternalSearch] = useState('')
@@ -31,6 +33,25 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
     logout()
     navigate('/login')
     setShowDropdown(false)
+  }
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.isRead) {
+      await markAsRead(notification.id)
+    }
+    setShowNotifications(false)
+    navigate(`/boards/${notification.boardId}`)
+  }
+
+  const handleMarkAllRead = async () => {
+    await markAllAsRead()
+  }
+
+  const handleNotificationToggle = () => {
+    setShowNotifications(!showNotifications)
+    if (!showNotifications) {
+      fetchNotifications()
+    }
   }
 
   const resolvedSearchValue = searchValue ?? internalSearch
@@ -77,14 +98,65 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
             </button>
             <div className="relative" ref={notificationRef}>
               <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-white/10"
+                onClick={handleNotificationToggle}
+                className="relative inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-white/10"
               >
                 <FiBell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-3 z-50 border border-gray-200">
-                  <p className="text-sm text-gray-700 px-4">No new notifications.</p>
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200 max-h-96 overflow-y-auto">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                    <h3 className="font-medium text-gray-900">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                      >
+                        <FiCheckCircle className="w-3 h-3 mr-1" />
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <p className="text-sm text-gray-500 px-4 py-6 text-center">No notifications yet.</p>
+                  ) : (
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
+                            notification.isRead ? 'border-transparent' : 'border-blue-500 bg-blue-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center">
+                                <FiBell className="w-4 h-4 text-amber-500 mr-2 flex-shrink-0" />
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {notification.title}
+                                </p>
+                                {!notification.isRead && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 flex-shrink-0"></div>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {new Date(notification.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

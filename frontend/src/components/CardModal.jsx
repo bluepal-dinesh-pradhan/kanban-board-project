@@ -19,7 +19,8 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
     title: '',
     description: '',
     dueDate: '',
-    labels: []
+    labels: [],
+    reminderType: 'ONE_DAY_BEFORE'
   })
   const [newComment, setNewComment] = useState('')
   const [newLabel, setNewLabel] = useState({ color: LABEL_COLORS[0], text: '' })
@@ -43,11 +44,16 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
 
   useEffect(() => {
     if (card) {
+      const reminderType =
+        card.reminders && card.reminders.length > 0
+          ? card.reminders[0].reminderType
+          : 'ONE_DAY_BEFORE'
       setFormData({
         title: card.title,
         description: card.description || '',
         dueDate: card.dueDate || '',
-        labels: card.labels || []
+        labels: card.labels || [],
+        reminderType
       })
     }
   }, [card])
@@ -80,10 +86,18 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
   const handleSave = (e) => {
     if (isViewer) return
     e.preventDefault()
+    const reminderType =
+      formData.dueDate && formData.reminderType
+        ? formData.reminderType
+        : formData.dueDate
+          ? 'ONE_DAY_BEFORE'
+          : null
+
     updateCardMutation.mutate({
       title: formData.title.trim(),
       description: formData.description.trim() || null,
       dueDate: formData.dueDate || null,
+      reminderType,
       columnId: card.columnId,
       labels: formData.labels
     })
@@ -146,6 +160,21 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
                     onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                <div className="flex items-center space-x-2 mt-3">
+                  <span className="text-sm text-gray-600">Reminder</span>
+                  <select
+                    value={formData.reminderType}
+                    onChange={(e) => setFormData(prev => ({ ...prev, reminderType: e.target.value }))}
+                    disabled={!formData.dueDate}
+                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <option value="ONE_DAY_BEFORE">1 day before (9 AM)</option>
+                    <option value="TWO_DAYS_BEFORE">2 days before (9 AM)</option>
+                    <option value="ONE_WEEK_BEFORE">1 week before (9 AM)</option>
+                    <option value="AT_DUE_TIME">At due time (9 AM)</option>
+                  </select>
                 </div>
 
                 {/* Labels Section */}
