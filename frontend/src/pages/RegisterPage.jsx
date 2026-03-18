@@ -170,8 +170,8 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
-      <div className="hidden md:block fixed bottom-0 left-0 pointer-events-none opacity-70">
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center px-6 py-12 relative overflow-hidden animate-fade-in">
+      <div className="hidden md:block fixed bottom-0 left-0 pointer-events-none opacity-20 transition-opacity duration-1000">
         <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="20" y="158" width="190" height="58" rx="14" fill="#CFE4FF" />
           <rect x="32" y="140" width="170" height="20" rx="10" fill="#B9D8FF" />
@@ -196,7 +196,7 @@ const RegisterPage = () => {
           <path d="M12 226H328" stroke="#BBD7FF" strokeWidth="6" strokeLinecap="round" />
         </svg>
       </div>
-      <div className="hidden md:block fixed bottom-0 right-0 pointer-events-none opacity-70">
+      <div className="hidden md:block fixed bottom-0 right-0 pointer-events-none opacity-20 transition-opacity duration-1000">
         <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="170" y="150" width="130" height="66" rx="14" fill="#FFE4E6" />
           <rect x="180" y="162" width="46" height="40" rx="10" fill="#FDBA74" />
@@ -219,11 +219,11 @@ const RegisterPage = () => {
         </svg>
       </div>
       <div className="w-full max-w-5xl">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="grid md:grid-cols-[1.05fr_0.95fr]">
-            <div className="p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-lg bg-[#0052CC] flex items-center justify-center text-white font-semibold">
+        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 overflow-hidden">
+          <div className="grid md:grid-cols-[1.05fr_0.95fr] divide-x divide-slate-100">
+            <div className="p-10 md:p-12">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-12 w-12 rounded-xl bg-[#0052CC] flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-100">
                   K
                 </div>
                 <div>
@@ -254,9 +254,9 @@ const RegisterPage = () => {
                       appearance-none relative block w-full px-3 py-3 h-11
                       border ${errors.fullName ? 'border-red-300 ring-red-100' : 'border-slate-300'}
                       placeholder-slate-400 text-slate-900 rounded-lg
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                      transition-all duration-200
-                    `}
+                      focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 focus:border-blue-500
+                    transition-all duration-300
+                  `}
                     placeholder="Enter your full name"
                   />
                   {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
@@ -414,11 +414,11 @@ const RegisterPage = () => {
                   className="
                     group relative w-full flex justify-center py-3 px-4 h-11
                     border border-transparent text-sm font-semibold rounded-lg text-white
-                    bg-[#0052CC] hover:bg-[#0747A6]
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                    disabled:opacity-60 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  "
+                bg-[#0052CC] hover:bg-[#0047b3] active:bg-[#003d99]
+                focus:outline-none focus:ring-4 focus:ring-blue-100 focus:ring-offset-0
+                disabled:opacity-60 disabled:cursor-not-allowed
+                transition-all duration-300 shadow-md shadow-blue-100 hover:-translate-y-0.5
+              "
                 >
                   {loading ? (
                     <div className="flex items-center">
@@ -444,9 +444,9 @@ const RegisterPage = () => {
               </form>
             </div>
 
-            <div className="border-t md:border-t-0 md:border-l border-slate-200 bg-slate-50 p-8">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-4">
-                Your plan includes
+            <div className="bg-slate-50/50 p-10 md:p-12 flex flex-col justify-center">
+              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] mb-6">
+                Why teams love Kanban
               </h3>
               <ul className="space-y-4 text-slate-700">
                 {[

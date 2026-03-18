@@ -65,72 +65,73 @@ const ActivityFeed = ({ boardId, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-end z-50">
-      <div className="bg-white w-80 h-full shadow-2xl transform transition-transform duration-300 ease-out">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-end z-50">
+      <div className="bg-white w-[380px] h-full shadow-[-4px_0_20px_rgba(0,0,0,0.1)] flex flex-col animate-slide-in-right">
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center space-x-2">
-              <FiActivity className="w-5 h-5 text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Activity</h2>
+          <div className="flex items-center justify-between p-5 border-b border-[#f1f5f9] bg-white">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center">
+                <FiActivity className="w-5 h-5 text-gray-700" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Activity</h2>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200"
             >
               <FiX className="h-5 w-5" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               </div>
             ) : activities?.length === 0 ? (
-              <div className="text-center py-12 px-4">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiActivity className="w-8 h-8 text-gray-400" />
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
+                <div className="w-20 h-20 bg-blue-50/50 rounded-full flex items-center justify-center mb-6 ring-4 ring-white">
+                  <FiActivity className="w-10 h-10 text-blue-300" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No activity yet</h3>
-                <p className="text-sm text-gray-500">
-                  Activity will show up here as you and your teammates work on this board.
+                <h3 className="text-lg font-bold text-gray-900 mb-2">No activity yet</h3>
+                <p className="text-[13px] text-gray-500 leading-relaxed max-w-[240px] mx-auto">
+                  Updates on cards, lists, and members will appear here as your project progresses.
                 </p>
               </div>
             ) : (
-              <div className="p-4">
-                <div className="space-y-4">
-                  {activities?.map((activity) => {
-                    const IconComponent = getActivityIcon(activity.action)
-                    const colorClasses = getActivityColor(activity.action)
-                    
-                    return (
-                      <div key={activity.id} className="flex space-x-3">
-                        <div className="flex-shrink-0">
-                          <Avatar name={activity.user.fullName} size="sm" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start space-x-2">
-                            <div className={`p-1 rounded-full ${colorClasses} flex-shrink-0 mt-0.5`}>
-                              <IconComponent className="w-3 h-3" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-900 leading-relaxed">
-                                <span className="font-medium">{activity.user.fullName}</span>
-                                {' '}
-                                <span className="text-gray-700">{getActionDescription(activity)}</span>
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {timeAgo(activity.createdAt)}
-                              </p>
+              <div className="divide-y divide-[#f1f5f9]">
+                {activities?.map((activity) => {
+                  const IconComponent = getActivityIcon(activity.action)
+                  const colorClasses = getActivityColor(activity.action)
+                  
+                  return (
+                    <div key={activity.id} className="flex space-x-3 px-5 py-4 transition-colors duration-200 hover:bg-[#f8fafc]">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <Avatar name={activity.user.fullName} size="sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-3">
+                          <div className={`p-1.5 rounded-lg ${colorClasses} flex-shrink-0 mt-0.5`}>
+                            <IconComponent className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-[13.5px] text-gray-900 leading-[1.6]">
+                              <span className="font-bold text-gray-950">{activity.user.fullName}</span>
+                              {' '}
+                              <span className="text-gray-600 italic font-medium">{getActionDescription(activity)}</span>
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#94a3b8] font-medium uppercase tracking-wider">
+                              <FiActivity className="w-2.5 h-2.5 opacity-60" />
+                              {timeAgo(activity.createdAt)}
                             </div>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

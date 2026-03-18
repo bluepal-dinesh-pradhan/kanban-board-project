@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave } from 'react-icons/fi'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft } from 'react-icons/fi'
 import { cardAPI } from '../api/endpoints'
 import toast from 'react-hot-toast'
+import RichTextEditor from './RichTextEditor'
 
 const LABEL_COLORS = [
   '#ef4444', // red
@@ -95,9 +96,22 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
 
     updateCardMutation.mutate({
       title: formData.title.trim(),
-      description: formData.description.trim() || null,
+      description: formData.description || null,
       dueDate: formData.dueDate || null,
       reminderType,
+      columnId: card.columnId,
+      labels: formData.labels
+    })
+  }
+
+  const handleDescriptionSave = (html) => {
+    if (isViewer) return
+    setFormData(prev => ({ ...prev, description: html }))
+    updateCardMutation.mutate({
+      title: formData.title.trim(),
+      description: html || null,
+      dueDate: formData.dueDate || null,
+      reminderType: formData.reminderType,
       columnId: card.columnId,
       labels: formData.labels
     })
@@ -133,214 +147,262 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
   if (!card) return null
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            {isEditing ? (
-              <form onSubmit={handleSave} className="flex-1">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center z-50 overflow-y-auto py-10 transition-opacity">
+      <div className="bg-[#f4f5f7] rounded-xl shadow-2xl max-w-3xl w-full mx-4 border border-gray-200 animate-scale-in flex flex-col relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 hover:bg-gray-200 p-2 rounded-full transition-colors duration-200 z-10"
+        >
+          <FiX className="h-5 w-5" />
+        </button>
+
+        <div className="p-8 pb-4">
+          <div className="flex items-start gap-3 mb-6">
+            <FiList className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
+            <div className="flex-1">
+              {isEditing ? (
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="text-xl font-medium w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-2xl font-bold bg-white px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all shadow-sm"
+                  autoFocus
                 />
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Add a description..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-3"
-                  rows={4}
-                />
-                <div className="flex items-center space-x-2 mt-3">
-                  <FiCalendar className="h-4 w-4 text-gray-400" />
-                  <input
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2 mt-3">
-                  <span className="text-sm text-gray-600">Reminder</span>
-                  <select
-                    value={formData.reminderType}
-                    onChange={(e) => setFormData(prev => ({ ...prev, reminderType: e.target.value }))}
-                    disabled={!formData.dueDate}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="ONE_DAY_BEFORE">1 day before (9 AM)</option>
-                    <option value="TWO_DAYS_BEFORE">2 days before (9 AM)</option>
-                    <option value="ONE_WEEK_BEFORE">1 week before (9 AM)</option>
-                    <option value="AT_DUE_TIME">At due time (9 AM)</option>
-                  </select>
-                </div>
-
-                {/* Labels Section */}
-                <div className="mt-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <FiTag className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">Labels</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {formData.labels.map((label) => (
-                      <span
-                        key={label.id}
-                        className="inline-flex items-center px-2 py-1 text-xs rounded-full text-white cursor-pointer"
-                        style={{ backgroundColor: label.color }}
-                        onClick={() => handleRemoveLabel(label.id)}
-                      >
-                        {label.text}
-                        <FiX className="ml-1 h-3 w-3" />
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <select
-                      value={newLabel.color}
-                      onChange={(e) => setNewLabel(prev => ({ ...prev, color: e.target.value }))}
-                      className="px-2 py-1 border border-gray-300 rounded text-xs"
-                    >
-                      {LABEL_COLORS.map(color => (
-                        <option key={color} value={color} style={{ backgroundColor: color, color: 'white' }}>
-                          {color}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={newLabel.text}
-                      onChange={(e) => setNewLabel(prev => ({ ...prev, text: e.target.value }))}
-                      placeholder="Label text"
-                      className="px-2 py-1 border border-gray-300 rounded text-xs flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddLabel}
-                      disabled={!newLabel.text.trim()}
-                      className="px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs disabled:opacity-50"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2 mt-4">
-                  <button
-                    type="submit"
-                    disabled={updateCardMutation.isPending}
-                    className="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50"
-                  >
-                    <FiSave className="mr-2 h-4 w-4" />
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(false)}
-                    className="text-gray-600 hover:text-gray-800 px-4 py-2"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex-1">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <h2 className="text-xl font-medium text-gray-900">{card.title}</h2>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-gray-900 leading-tight tracking-tight">{card.title}</h2>
                   {isViewer && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gray-200/80 text-gray-700">
                       View only
                     </span>
                   )}
                 </div>
-                {card.description && (
-                  <p className="text-gray-700 mb-4 whitespace-pre-wrap">{card.description}</p>
-                )}
-                
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {card.labels?.map((label) => (
-                    <span
-                      key={label.id}
-                      className="inline-block px-2 py-1 text-xs rounded-full text-white"
-                      style={{ backgroundColor: label.color }}
-                    >
-                      {label.text}
-                    </span>
-                  ))}
-                </div>
-
-                {card.dueDate && (
-                  <div className="flex items-center text-sm text-gray-500 mb-4">
-                    <FiCalendar className="mr-2 h-4 w-4" />
-                    Due: {new Date(card.dueDate).toLocaleDateString()}
-                  </div>
-                )}
-                
-                {!isViewer && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-            )}
-            
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 ml-4"
-            >
-              <FiX className="h-5 w-5" />
-            </button>
+              )}
+            </div>
           </div>
 
-          <div className="border-t pt-4">
-            <div className="flex items-center space-x-2 mb-3">
-              <FiMessageSquare className="h-4 w-4 text-gray-400" />
-              <h3 className="font-medium text-gray-900">Comments</h3>
-            </div>
-            {isViewer && (
-              <p className="text-xs text-gray-500 mb-3">
-                You have view-only access. Comments and edits are disabled.
-              </p>
-            )}
-            {!isViewer && (
-              <form onSubmit={handleAddComment} className="mb-4">
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                />
-                <button
-                  type="submit"
-                  disabled={!newComment.trim() || addCommentMutation.isPending}
-                  className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm disabled:opacity-50"
-                >
-                  Add Comment
-                </button>
-              </form>
-            )}
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex-1 space-y-8">
+              {/* Status Row (Labels & Due Date viewing mode) */}
+              {!isEditing && (
+                <div className="flex flex-wrap items-start gap-8 ml-9">
+                  {card.labels?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Labels</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {card.labels.map((label) => (
+                          <span
+                            key={label.id}
+                            className="inline-block px-3 py-1 text-sm font-semibold rounded-md text-white shadow-sm"
+                            style={{ backgroundColor: label.color }}
+                          >
+                            {label.text}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-            <div className="space-y-3">
-              {comments?.map((comment) => (
-                <div key={comment.id} className="bg-gray-50 p-3 rounded-md">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-medium text-sm text-gray-900">
-                      {comment.author.fullName}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(comment.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                  {card.dueDate && (
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Due Date</h3>
+                      <div className="flex items-center text-sm text-gray-800 bg-gray-200/60 px-3 py-1.5 rounded-md font-medium">
+                        <FiClock className="mr-2 h-4 w-4 text-gray-600" />
+                        {new Date(card.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* Editing controls for Labels & Due Date */}
+              {isEditing && (
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm ml-9 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Due Date</label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FiCalendar className="text-gray-400" />
+                          </div>
+                          <input
+                            type="date"
+                            value={formData.dueDate}
+                            onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-sm transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Reminder</label>
+                      <select
+                        value={formData.reminderType}
+                        onChange={(e) => setFormData(prev => ({ ...prev, reminderType: e.target.value }))}
+                        disabled={!formData.dueDate}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 transition-all"
+                      >
+                        <option value="ONE_DAY_BEFORE">1 day before (9 AM)</option>
+                        <option value="TWO_DAYS_BEFORE">2 days before (9 AM)</option>
+                        <option value="ONE_WEEK_BEFORE">1 week before (9 AM)</option>
+                        <option value="AT_DUE_TIME">At due time (9 AM)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Labels</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.labels.map((label) => (
+                        <span
+                          key={label.id}
+                          className="inline-flex items-center px-3 py-1 min-w-[50px] justify-between text-sm font-semibold rounded-md text-white cursor-pointer hover:opacity-90 shadow-sm transition-opacity"
+                          style={{ backgroundColor: label.color }}
+                          onClick={() => handleRemoveLabel(label.id)}
+                        >
+                          {label.text || '\u00A0'}
+                          <FiX className="ml-2 h-3.5 w-3.5 opacity-80" />
+                        </span>
+                      ))}
+                      {formData.labels.length === 0 && <span className="text-sm text-gray-400 italic">No labels added</span>}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={newLabel.color}
+                        onChange={(e) => setNewLabel(prev => ({ ...prev, color: e.target.value }))}
+                        className="px-2 py-2 border border-gray-300 rounded-lg text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all font-semibold"
+                        style={{ backgroundColor: newLabel.color, color: 'white' }}
+                      >
+                        {LABEL_COLORS.map(color => (
+                          <option key={color} value={color} style={{ backgroundColor: color, color: 'white' }}>
+                            Color
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={newLabel.text}
+                        onChange={(e) => setNewLabel(prev => ({ ...prev, text: e.target.value }))}
+                        placeholder="Label text..."
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddLabel}
+                        disabled={!newLabel.text.trim()}
+                        className="px-4 py-2 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3">
+                <FiAlignLeft className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 w-full relative">
+                  <div className="flex items-center justify-between mb-3 mt-1">
+                    <h3 className="text-lg font-semibold text-gray-900">Description</h3>
+                  </div>
+                  
+                  <RichTextEditor 
+                    content={formData.description}
+                    onSave={handleDescriptionSave}
+                    onCancel={() => {
+                      setFormData(prev => ({ ...prev, description: card.description || '' }))
+                    }}
+                    placeholder="Add a more detailed description..."
+                    editable={!isViewer}
+                  />
+                </div>
+              </div>
+
+              {/* Comments Section */}
+              <div className="flex items-start gap-3 pt-6 border-t border-gray-200/70">
+                <FiMessageSquare className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 w-full">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 mt-1">Activity</h3>
+                  
+                  {isViewer ? (
+                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm text-yellow-800 mb-6 flex items-center shadow-sm">
+                      <FiMessageSquare className="mr-2 h-5 w-5 text-yellow-600" />
+                      You have view-only access. Comments and edits are disabled.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleAddComment} className="mb-8 bg-white p-2 rounded-xl border border-gray-300 focus-within:ring-4 focus-within:ring-blue-100 focus-within:border-blue-500 shadow-sm transition-all duration-200">
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Write a comment..."
+                        className="w-full px-3 py-2 bg-transparent outline-none resize-y min-h-[60px] text-[15px] placeholder-gray-500 text-gray-800"
+                      />
+                      <div className="flex justify-end pt-2 pb-1 pr-1">
+                        <button
+                          type="submit"
+                          disabled={!newComment.trim() || addCommentMutation.isPending}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm focus:ring-4 focus:ring-blue-100"
+                        >
+                          Save comment
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <div className="space-y-4">
+                    {comments?.length === 0 && (
+                      <p className="text-gray-500 text-sm italic">No comments yet. Be the first to start the discussion!</p>
+                    )}
+                    {comments?.map((comment) => (
+                      <div key={comment.id} className="flex gap-3">
+                        <div className="h-9 w-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-sm shrink-0 uppercase ring-2 ring-white shadow-sm">
+                          {comment.author?.fullName?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-[14px] text-gray-900">
+                              {comment.author?.fullName || 'Unknown User'}
+                            </span>
+                            <span className="text-xs font-medium text-gray-500">
+                              {new Date(comment.createdAt).toLocaleString(undefined, {
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <div className="bg-white p-3.5 rounded-b-xl rounded-tr-xl border border-gray-200 shadow-sm text-[15px] text-gray-800 whitespace-pre-wrap leading-relaxed">
+                            {comment.content}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="w-full md:w-48 flex flex-col gap-6 shrink-0 mt-2 md:mt-0">
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Actions</h4>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  disabled={isViewer}
+                  className="w-full flex items-center px-4 py-2 bg-gray-200/70 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiTag className="mr-2.5 h-4 w-4" />
+                  Labels
+                </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  disabled={isViewer}
+                  className="w-full flex items-center px-4 py-2 bg-gray-200/70 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiCalendar className="mr-2.5 h-4 w-4" />
+                  Dates
+                </button>
+              </div>
             </div>
           </div>
         </div>

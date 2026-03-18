@@ -128,7 +128,7 @@ export const NotificationProvider = ({ children }) => {
     const interval = setInterval(() => {
       fetchUnreadCount()
       fetchNotifications()
-    }, 120000) // 2 minutes
+    }, 30000) // 30 seconds
 
     return () => clearInterval(interval)
   }, [isAuthenticated])

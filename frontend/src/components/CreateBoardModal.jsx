@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX } from 'react-icons/fi'
+import { FiX, FiCheck } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import toast from 'react-hot-toast'
 
@@ -56,6 +56,7 @@ const CreateBoardModal = ({ onClose }) => {
       background: formData.background
     })
   }
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -66,22 +67,22 @@ const CreateBoardModal = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Create new board</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.2)] max-w-md w-full border border-gray-100 animate-scale-in">
+        <div className="p-8">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 tracking-tight">Create new board</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors duration-200"
             >
-              <FiX className="h-6 w-6" />
+              <FiX className="h-5 w-5" />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-2">
                 Board title
               </label>
               <input
@@ -91,54 +92,60 @@ const CreateBoardModal = ({ onClose }) => {
                 value={formData.title}
                 onChange={handleChange}
                 className={`
-                  block w-full px-3 py-2 border ${
-                    errors.title ? 'border-red-300' : 'border-gray-300'
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                  block w-full px-4 py-3 text-sm border-2 ${
+                    errors.title ? 'border-red-300 ring-4 ring-red-50' : 'border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50'
+                  } rounded-xl outline-none transition-all duration-300 font-medium
                 `}
                 placeholder="Enter board title"
                 autoFocus
               />
-              {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
+              {errors.title && <p className="mt-2 text-xs text-red-600 font-bold uppercase tracking-wider">{errors.title}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Background
               </label>
-              <div className="flex space-x-3">
+              <div className="flex space-x-4">
                 {backgroundOptions.map((option) => (
                   <button
                     key={option.color}
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, background: option.color }))}
                     className={`
-                      w-12 h-12 rounded-lg border-4 transition-all duration-200
+                      relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
                       ${formData.background === option.color 
-                        ? 'border-gray-800 scale-110' 
-                        : 'border-gray-200 hover:border-gray-400'
+                        ? 'ring-4 ring-gray-900 ring-offset-2 scale-110 shadow-lg' 
+                        : 'hover:scale-105 hover:shadow-md'
                       }
                     `}
                     style={{ backgroundImage: option.gradient }}
                     title={option.name}
-                  />
+                  >
+                    {formData.background === option.color && (
+                      <div className="w-6 h-6 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/40">
+                        <FiCheck className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex justify-end gap-3 pt-8 border-t border-gray-100 mt-10">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                className="px-6 py-2.5 text-sm font-bold text-gray-500 border-2 border-transparent rounded-xl hover:bg-gray-100 hover:text-gray-900 transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors duration-200"
+                className="px-8 py-2.5 text-sm font-bold text-white bg-[#0079BF] rounded-xl hover:bg-[#005A8E] disabled:opacity-50 shadow-lg shadow-blue-100 transition-all hover:-translate-y-0.5"
               >
-                {createMutation.isPending ? 'Creating...' : 'Create'}
+                {createMutation.isPending ? 'Creating...' : 'Create board'}
               </button>
             </div>
           </form>
