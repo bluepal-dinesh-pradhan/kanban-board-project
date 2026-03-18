@@ -62,139 +62,85 @@ public class BoardService {
     }
 
     @Transactional
-    public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
-        Board board = boardRepository.findById(boardId).orElseThrow();
-        BoardMember inviterMember = boardMemberRepository.findByBoardIdAndUserId(boardId, inviterId)
-                .orElseThrow(() -> new RuntimeException("Access denied"));
-        if (inviterMember.getRole() != BoardMember.Role.OWNER) {
-            throw new RuntimeException("Only board owner can invite members");
-        }
+        public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
+            Board board = boardRepository.findById(boardId).orElseThrow();
+            checkPermission(boardId, inviterId, BoardMember.Role.OWNER);
+            User inviter = userRepository.findById(inviterId).orElseThrow();
 
-        User inviter = userRepository.findById(inviterId).orElseThrow();
-
-        if (board.getOwner().getEmail().equalsIgnoreCase(req.getEmail())) {
-            throw new RuntimeException("You are already the owner of this board");
-        }
-
-        var userOpt = userRepository.findByEmail(req.getEmail());
-
-        if (userOpt.isPresent()) {
-            User invitee = userOpt.get();
-            if (boardMemberRepository.existsByBoardIdAndUserId(boardId, invitee.getId())) {
-                throw new RuntimeException("This user is already a member of this board");
+            // Check if already a member
+            if (boardMemberRepository.existsByBoardIdAndUserId(boardId, 
+                    userRepository.findByEmail(req.getEmail()).map(User::getId).orElse(-1L))) {
+                throw new RuntimeException("User is already a member");
             }
 
-            BoardMember member = BoardMember.builder()
-                    .board(board)
-                    .user(invitee)
-                    .role(req.getRole())
-                    .build();
-            boardMemberRepository.save(member);
+            // Check if invitation already exists
+            if (invitationRepository.existsByBoardIdAndEmail(boardId, req.getEmail())) {
+                throw new RuntimeException("User is already invited");
+            }
 
-            boolean emailSent = emailService.sendBoardInvitation(
-                req.getEmail(),
-                inviter.getFullName(),
-                board.getTitle(),
-                req.getRole().name(),
-                true,
-                null
-            );
+            // Try to find user by email
+            var userOpt = userRepository.findByEmail(req.getEmail());
 
-            activityService.log(board, inviter, "INVITED_MEMBER", "USER", invitee.getId());
+            if (userOpt.isPresent()) {
+                // User exists - add directly as member
+                User invitee = userOpt.get();
+                BoardMember member = BoardMember.builder()
+                        .board(board).user(invitee).role(req.getRole()).build();
+                boardMemberRepository.save(member);
 
-            return InviteResponse.builder()
-                .status("ADDED")
-                .message("Member added!")
-                .emailSent(emailSent)
-                .build();
-        }
-
-        Invitation existingInvitation = invitationRepository.findByBoardIdAndEmail(boardId, req.getEmail()).orElse(null);
-        if (existingInvitation != null) {
-            if (existingInvitation.getStatus() == Invitation.InvitationStatus.PENDING) {
-                existingInvitation.setToken(UUID.randomUUID().toString());
-                existingInvitation.setExpiresAt(LocalDateTime.now().plusDays(invitationExpiresDays));
-                existingInvitation.setInvitedBy(inviter);
-                existingInvitation.setRole(req.getRole());
-                invitationRepository.save(existingInvitation);
-
+                // Send email notification
                 boolean emailSent = emailService.sendBoardInvitation(
-                    req.getEmail(),
-                    inviter.getFullName(),
-                    board.getTitle(),
-                    req.getRole().name(),
-                    false,
-                    existingInvitation.getToken()
+                    req.getEmail(), 
+                    inviter.getFullName(), 
+                    board.getTitle(), 
+                    req.getRole().name(), 
+                    true
                 );
 
-                activityService.log(board, inviter, "RESENT_INVITATION", "INVITATION", existingInvitation.getId());
+                activityService.log(board, inviter, "INVITED_MEMBER", "USER", invitee.getId());
 
                 return InviteResponse.builder()
-                    .status("RESENT")
-                    .message("Invitation resent!")
+                    .status("ADDED")
+                    .message(invitee.getFullName() + " has been added to the board!")
                     .emailSent(emailSent)
                     .build();
-            }
+            } else {
+                // User doesn't exist - create pending invitation
+                Invitation invitation = Invitation.builder()
+                        .board(board)
+                        .email(req.getEmail())
+                        .role(req.getRole())
+                        .invitedBy(inviter)
+                        .status(Invitation.InvitationStatus.PENDING)
+                        .build();
+                invitationRepository.save(invitation);
 
-            if (existingInvitation.getStatus() == Invitation.InvitationStatus.ACCEPTED) {
-                throw new RuntimeException("This user is already a member of this board");
-            }
-
-            if (existingInvitation.getStatus() == Invitation.InvitationStatus.DECLINED) {
-                existingInvitation.setStatus(Invitation.InvitationStatus.PENDING);
-                existingInvitation.setToken(UUID.randomUUID().toString());
-                existingInvitation.setExpiresAt(LocalDateTime.now().plusDays(invitationExpiresDays));
-                existingInvitation.setInvitedBy(inviter);
-                existingInvitation.setRole(req.getRole());
-                invitationRepository.save(existingInvitation);
-
+                // Send email notification
                 boolean emailSent = emailService.sendBoardInvitation(
-                    req.getEmail(),
-                    inviter.getFullName(),
-                    board.getTitle(),
-                    req.getRole().name(),
-                    false,
-                    existingInvitation.getToken()
+                    req.getEmail(), 
+                    inviter.getFullName(), 
+                    board.getTitle(), 
+                    req.getRole().name(), 
+                    false
                 );
 
-                activityService.log(board, inviter, "RESENT_INVITATION", "INVITATION", existingInvitation.getId());
+                activityService.log(board, inviter, "SENT_INVITATION", "INVITATION", invitation.getId());
 
-                return InviteResponse.builder()
-                    .status("INVITED")
-                    .message("Invitation sent!")
-                    .emailSent(emailSent)
-                    .build();
+                if (emailSent) {
+                    return InviteResponse.builder()
+                        .status("INVITED")
+                        .message("Invitation email sent to " + req.getEmail())
+                        .emailSent(true)
+                        .build();
+                } else {
+                    return InviteResponse.builder()
+                        .status("INVITED")
+                        .message("Invitation saved. Share the registration link with them manually.")
+                        .emailSent(false)
+                        .build();
+                }
             }
         }
-
-        Invitation invitation = Invitation.builder()
-                .board(board)
-                .email(req.getEmail())
-                .role(req.getRole())
-                .invitedBy(inviter)
-                .status(Invitation.InvitationStatus.PENDING)
-                .token(UUID.randomUUID().toString())
-                .expiresAt(LocalDateTime.now().plusDays(invitationExpiresDays))
-                .build();
-        invitationRepository.save(invitation);
-
-        boolean emailSent = emailService.sendBoardInvitation(
-            req.getEmail(),
-            inviter.getFullName(),
-            board.getTitle(),
-            req.getRole().name(),
-            false,
-            invitation.getToken()
-        );
-
-        activityService.log(board, inviter, "INVITED_MEMBER", "INVITATION", invitation.getId());
-
-        return InviteResponse.builder()
-            .status("INVITED")
-            .message("Invitation sent!")
-            .emailSent(emailSent)
-            .build();
-    }
 
     @Transactional(readOnly = true)
     public List<ColumnDto> getBoardColumns(Long boardId, Long userId) {

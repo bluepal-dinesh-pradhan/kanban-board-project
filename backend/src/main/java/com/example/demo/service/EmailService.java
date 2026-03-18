@@ -10,6 +10,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 
 @Service
 @Slf4j
@@ -27,7 +28,7 @@ public class EmailService {
     @Value("${app.mail.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists, String invitationToken) {
+    public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists) {
         if (!mailEnabled || mailSender == null) {
             log.info("Email disabled. Invitation for {} saved to DB only.", toEmail);
             return false;
@@ -45,7 +46,7 @@ public class EmailService {
                 helper.setText(buildMemberAddedHtml(toEmail, inviterName, boardTitle, role), true);
             } else {
                 helper.setSubject("You've been invited to join \"" + boardTitle + "\" on Kanban Board");
-                helper.setText(buildInvitationHtml(inviterName, boardTitle, role, toEmail, invitationToken), true);
+                helper.setText(buildInvitationHtml(inviterName, boardTitle, role, toEmail), true);
             }
             
             mailSender.send(message);
@@ -57,15 +58,34 @@ public class EmailService {
         }
     }
 
-    private String buildInvitationHtml(String inviterName, String boardTitle, String role, String toEmail, String invitationToken) {
-        if (invitationToken == null || invitationToken.isBlank()) {
-            throw new RuntimeException("Invitation token is missing");
+    public boolean sendDueDateReminder(String toEmail, String userName, String cardTitle, String boardTitle, LocalDate dueDate) {
+        if (!mailEnabled || mailSender == null) {
+            log.info("Email disabled. Due date reminder for {} not sent.", toEmail);
+            return false;
         }
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("Due Date Reminder: " + cardTitle);
+            helper.setText(buildDueDateReminderHtml(userName, cardTitle, boardTitle, dueDate), true);
+            
+            mailSender.send(message);
+            log.info("Due date reminder email sent successfully to {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send due date reminder email to {}: {}", toEmail, e.getMessage());
+            return false;
+        }
+    }
+
+    private String buildInvitationHtml(String inviterName, String boardTitle, String role, String toEmail) {
         String encodedEmail = URLEncoder.encode(toEmail, StandardCharsets.UTF_8);
-        String encodedToken = URLEncoder.encode(invitationToken, StandardCharsets.UTF_8);
-        String redirectParam = URLEncoder.encode("/invite?token=" + invitationToken, StandardCharsets.UTF_8);
-        String inviteUrl = frontendUrl + "/invite?token=" + encodedToken;
-        String loginUrl = frontendUrl + "/login?inviteToken=" + encodedToken + "&email=" + encodedEmail + "&redirect=" + redirectParam;
+        String registerUrl = frontendUrl + "/register?email=" + encodedEmail + "&invited=true";
+        String loginUrl = frontendUrl + "/login?invited=true";
         
         return """
             <!DOCTYPE html>
@@ -120,7 +140,7 @@ public class EmailService {
                 </div>
             </body>
             </html>
-            """.formatted(inviterName, boardTitle, role.toLowerCase(), inviteUrl, loginUrl, inviterName);
+            """.formatted(inviterName, boardTitle, role.toLowerCase(), registerUrl, loginUrl, inviterName);
     }
 
     private String buildMemberAddedHtml(String toEmail, String inviterName, String boardTitle, String role) {
@@ -176,5 +196,59 @@ public class EmailService {
             </body>
             </html>
             """.formatted(inviterName, boardTitle, role.toLowerCase(), loginUrl, inviterName);
+    }
+
+    private String buildDueDateReminderHtml(String userName, String cardTitle, String boardTitle, LocalDate dueDate) {
+        String boardUrl = frontendUrl + "/boards";
+        
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Due Date Reminder</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); padding: 40px 20px; text-align: center;">
+                        <div style="background-color: white; width: 60px; height: 60px; border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); border-radius: 6px;"></div>
+                        </div>
+                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Due Date Reminder</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px;">Don't miss your deadline</p>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div style="padding: 40px 20px;">
+                        <h2 style="color: #1f2937; margin: 0 0 20px; font-size: 24px; font-weight: 600;">Hi %s,</h2>
+                        
+                        <p style="color: #4b5563; margin: 0 0 20px; font-size: 16px; line-height: 1.6;">
+                            This is a reminder that your card "<strong>%s</strong>" in board "<strong>%s</strong>" is due on <strong>%s</strong>.
+                        </p>
+                        
+                        <p style="color: #6b7280; margin: 0 0 30px; font-size: 14px; line-height: 1.5;">
+                            Click the button below to view your board and update the card status.
+                        </p>
+                        
+                        <!-- CTA Button -->
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="%s" style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%%, #d97706 100%%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);">
+                                View Board
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                        <p style="color: #6b7280; margin: 0; font-size: 12px;">
+                            This reminder was sent by Kanban Board
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(userName, cardTitle, boardTitle, dueDate.toString(), boardUrl);
     }
 }
