@@ -39,9 +39,9 @@ const BoardListPage = () => {
   const content = (() => {
     if (isLoading) {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonBoard key={i} className="bg-gray-200" />
+            <SkeletonBoard key={i} className="bg-slate-200" />
           ))}
         </div>
       )
@@ -83,16 +83,16 @@ const BoardListPage = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
         {filteredBoards?.map((board) => (
           <BoardCard key={board.id} board={board} />
         ))}
         <button
           onClick={() => setShowCreateModal(true)}
-          className="h-24 rounded-xl border border-dashed border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 flex flex-col items-center justify-center text-slate-600 hover:text-slate-800 transition-all duration-200"
+          className="h-[110px] rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-[#f0f7ff] flex flex-col items-center justify-center text-slate-500 hover:text-blue-600 transition-all duration-300 group shadow-sm"
         >
-          <FiPlus className="w-5 h-5 mb-1" />
-          <span className="text-sm font-medium">Create new board</span>
+          <FiPlus className="w-6 h-6 mb-1 group-hover:scale-110 transition-transform" />
+          <span className="text-sm font-bold tracking-tight">Create new board</span>
         </button>
       </div>
     )
@@ -108,19 +108,19 @@ const BoardListPage = () => {
       <div className="max-w-[1400px] mx-auto flex">
         <aside className="hidden lg:flex w-64 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-48px)] px-4 py-5">
           <div className="w-full space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <button
                 onClick={() => {
                   setActiveNav('home')
                   navigate('/boards')
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
                   activeNav === 'home'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold'
                 }`}
               >
-                <FiHome className="w-4 h-4" />
+                <FiHome className={`w-4 h-4 ${activeNav === 'home' ? 'text-blue-600' : 'text-slate-400'}`} />
                 Home
               </button>
               <button
@@ -128,55 +128,55 @@ const BoardListPage = () => {
                   setActiveNav('boards')
                   navigate('/boards')
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
                   activeNav === 'boards'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold'
                 }`}
               >
-                <FiGrid className="w-4 h-4" />
+                <FiGrid className={`w-4 h-4 ${activeNav === 'boards' ? 'text-blue-600' : 'text-slate-400'}`} />
                 Boards
               </button>
             </div>
 
             <div>
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mb-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-3">
                 Workspaces
                 <button
                   onClick={() => setWorkspaceOpen(!workspaceOpen)}
-                  className="text-slate-500 hover:text-slate-700"
+                  className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-md transition-colors"
                 >
-                  <FiChevronDown className={`w-4 h-4 transition-transform ${workspaceOpen ? 'rotate-180' : ''}`} />
+                  <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${workspaceOpen ? 'rotate-180' : ''}`} />
                 </button>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-3 hover:shadow-sm transition-shadow duration-200">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-md bg-[#0B5FFF] text-white flex items-center justify-center text-sm font-semibold">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center text-sm font-bold shadow-sm">
                     K
                   </div>
-                  <div className="text-sm font-semibold text-slate-800">Kanban Workspace</div>
+                  <div className="text-sm font-semibold text-slate-800 tracking-tight">Kanban Workspace</div>
                 </div>
                 {workspaceOpen && (
-                  <div className="mt-3 space-y-1">
+                  <div className="mt-3.5 space-y-0.5">
                     <button
                       onClick={() => navigate('/boards')}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-white"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
                     >
-                      <FiGrid className="w-4 h-4 text-slate-500" />
+                      <FiGrid className="w-4 h-4 text-slate-400" />
                       Boards
                     </button>
                     <button
                       onClick={() => setShowMembersModal(true)}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-white"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
                     >
-                      <FiUsers className="w-4 h-4 text-slate-500" />
+                      <FiUsers className="w-4 h-4 text-slate-400" />
                       Members
                     </button>
                     <button
                       onClick={() => toast('Workspace settings coming soon!')}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-slate-700 hover:bg-white"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
                     >
-                      <FiSettings className="w-4 h-4 text-slate-500" />
+                      <FiSettings className="w-4 h-4 text-slate-400" />
                       Settings
                     </button>
                   </div>
@@ -186,7 +186,7 @@ const BoardListPage = () => {
           </div>
         </aside>
 
-        <main className="flex-1 px-6 py-6">
+        <main className="flex-1 px-8 py-8 h-full">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-md bg-[#0B5FFF] text-white flex items-center justify-center text-sm font-semibold">
               K

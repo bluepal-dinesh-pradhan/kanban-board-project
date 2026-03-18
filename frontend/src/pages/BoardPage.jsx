@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
@@ -283,10 +283,29 @@ const BoardPage = () => {
     setter(prev => prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value])
   }
 
-  const isOverdue = (dueDate) => {
-    if (!dueDate) return false
-    return new Date(dueDate) < new Date()
+  const getDueDateStyles = (dueDate, isDone) => {
+    if (!dueDate) return null
+    if (isDone) return 'bg-[#f1f5f9] text-[#64748b] line-through border-[#e2e8f0]'
+    
+    const now = new Date()
+    const due = new Date(dueDate)
+    const diffMs = due - now
+    const diffHours = diffMs / (1000 * 60 * 60)
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dueDay = new Date(dueDate)
+    dueDay.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil((dueDay - today) / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) return 'bg-[#fef2f2] text-[#dc2626] border-[#fecaca]' // Overdue
+    if (diffHours >= 0 && diffHours <= 24) return 'bg-[#fff7ed] text-[#ea580c] border-[#fed7aa]' // Due soon (24h)
+    if (diffDays === 0) return 'bg-[#eff6ff] text-[#2563eb] border-[#bfdbfe]' // Due today
+    return 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0]' // On track
   }
+
+
+
 
   if (isLoading) {
     return (
@@ -404,12 +423,12 @@ const BoardPage = () => {
             {columns?.map((column) => {
               const visibleCardCount = column.cards.filter(matchesFilters).length
               return (
-              <div key={column.id} className="w-80 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-white/30 flex-shrink-0">
-                <div className="p-4 border-b border-gray-200/50">
+              <div key={column.id} className="w-80 bg-[#f4f5f7] rounded-[12px] flex-shrink-0 flex flex-col max-h-full">
+                <div className="p-3 pb-2 border-b-0">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-800">{column.title}</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    <h3 className="font-semibold text-[13px] text-[#64748b] tracking-[0.5px] uppercase px-1">{column.title}</h3>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shadow-sm">
                         {visibleCardCount}
                       </span>
                       {!isViewer && (
@@ -421,14 +440,14 @@ const BoardPage = () => {
                   </div>
                 </div>
 
-                <div className="p-4">
+                <div className="px-2 pb-2 flex-1 overflow-y-auto scrollbar-thin">
                   <Droppable droppableId={`col-${column.id}`}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`space-y-3 min-h-[100px] transition-colors duration-200 ${
-                          snapshot.isDraggingOver ? 'bg-blue-50 rounded-lg p-2' : ''
+                        className={`space-y-2 min-h-[10px] transition-colors duration-200 ${
+                          snapshot.isDraggingOver ? 'bg-blue-50/50 rounded-lg p-1.5' : 'p-1'
                         }`}
                       >
                         {column.cards.map((card, index) => {
@@ -446,53 +465,66 @@ const BoardPage = () => {
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={() => setSelectedCard(card.id)}
-                                className={`group bg-white rounded-lg shadow-sm hover:shadow-md cursor-pointer border border-gray-200 transition-all duration-200 ${
-                                  snapshot.isDragging ? 'rotate-2 shadow-xl scale-105' : 'hover:scale-102'
-                                } ${isMatch ? 'opacity-100' : 'opacity-20'} transition-opacity`}
+                                className={`group bg-white rounded-[8px] shadow-[0_1px_4px_rgba(0,0,0,0.1)] hover:-translate-y-[2px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] cursor-pointer border border-transparent hover:border-[#e2e8f0] transition-all duration-150 ease-in-out ${
+                                  snapshot.isDragging ? 'rotate-3 shadow-2xl scale-105 z-50' : ''
+                                } ${isMatch ? 'opacity-100' : 'opacity-20'} relative`}
                               >
-                                <div className="p-4">
+                                <div className="p-3.5">
                                   {card.labels?.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mb-3">
+                                    <div className="flex flex-wrap gap-1.5 mb-2.5">
                                       {card.labels.map((label) => (
                                         <div
                                           key={label.id}
-                                          className="h-2 w-10 rounded-full"
+                                          className="h-[8px] w-10 rounded-[4px]"
                                           style={{ backgroundColor: label.color }}
                                         />
                                       ))}
                                     </div>
                                   )}
                                   
-                                  <h4 className="font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                  <h4 className="font-medium text-[14px] leading-snug text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
                                     {card.title}
                                   </h4>
                                   
                                   {card.description && (
-                                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                    <p className="text-[12px] text-gray-500 mb-3 line-clamp-2 leading-relaxed">
                                       {card.description}
                                     </p>
                                   )}
 
                                   <div className="flex items-center justify-between text-xs text-gray-500">
-                                    <div className="flex items-center space-x-3">
+                                    <div className="flex items-center space-x-2.5">
                                       {card.dueDate && (
-                                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
-                                          isOverdue(card.dueDate) 
-                                            ? 'bg-red-100 text-red-700' 
-                                            : 'bg-yellow-100 text-yellow-700'
-                                        }`}>
+                                        <div className={`flex items-center gap-1 px-2 py-[2px] rounded-[4px] border text-[12px] font-medium ${getDueDateStyles(card.dueDate, column.title.toLowerCase() === 'done' || column.title.toLowerCase() === 'completed')}`}>
+
+
+
+
                                           <FiCalendar className="w-3 h-3" />
-                                          <span>{timeAgo(card.dueDate)}</span>
+                                          <span className="leading-none">{timeAgo(card.dueDate)}</span>
                                         </div>
                                       )}
                                       
                                       {card.commentCount > 0 && (
-                                        <div className="flex items-center space-x-1 text-gray-500">
-                                          <FiMessageSquare className="w-3 h-3" />
-                                          <span>{card.commentCount}</span>
+                                        <div className="flex items-center space-x-1 text-gray-400 font-medium">
+                                          <FiMessageSquare className="w-3.5 h-3.5" />
+                                          <span className="text-[11px]">{card.commentCount}</span>
                                         </div>
                                       )}
                                     </div>
+                                    {card.members?.length > 0 && (
+                                      <div className="flex -space-x-1.5 overflow-hidden ml-2">
+                                        {card.members.map((member) => (
+                                          <div
+                                            key={member.id}
+                                            className="inline-block h-[20px] w-[20px] rounded-full ring-2 ring-white bg-gradient-to-br from-blue-600 to-purple-600 shadow-sm flex items-center justify-center text-[9px] font-bold text-white shrink-0 uppercase"
+                                            title={member.user?.fullName || member.fullName || 'User'}
+                                          >
+                                            {(member.user?.fullName || member.fullName || 'U').charAt(0)}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -541,7 +573,7 @@ const BoardPage = () => {
                   ) : !isViewer ? (
                     <button
                       onClick={() => setShowCreateCard(column.id)}
-                      className="w-full mt-3 p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg text-sm flex items-center transition-colors group"
+                      className="w-full mt-1.5 p-2 text-gray-500 hover:text-gray-700 hover:bg-[#e2e8f0] rounded-lg text-sm font-medium flex items-center text-left transition-colors group"
                     >
                       <FiPlus className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                       Add a card
@@ -589,9 +621,9 @@ const BoardPage = () => {
                 ) : (
                   <button
                     onClick={() => setShowCreateColumn(true)}
-                    className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white p-4 rounded-xl border border-white/30 text-left flex items-center transition-all duration-200 hover:scale-105"
+                    className="w-full bg-black/10 hover:bg-black/20 backdrop-blur-sm text-white/90 px-4 py-3.5 rounded-xl border border-white/10 text-left flex items-center font-medium transition-all duration-200 hover:scale-[1.02]"
                   >
-                    <FiPlus className="mr-2 h-5 w-5" />
+                    <FiPlus className="mr-2 h-5 w-5 opacity-80" />
                     Add another list
                   </button>
                 )
@@ -607,54 +639,59 @@ const BoardPage = () => {
             className="absolute inset-0 bg-black/30"
             onClick={() => setShowFilterPanel(false)}
           ></div>
-          <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl border-l border-gray-200 flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-              <div className="flex items-center space-x-2">
-                <FiFilter className="w-5 h-5 text-gray-700" />
-                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-[-4px_0_20px_rgba(0,0,0,0.1)] border-l border-gray-100 flex flex-col animate-slide-in-right">
+            <div className="flex items-center justify-between px-5 p-4 border-b border-gray-100 bg-white z-10">
+              <div className="flex items-center space-x-2.5">
+                <FiFilter className="w-4 h-4 text-blue-600" />
+                <h3 className="text-lg font-bold text-gray-900 tracking-tight">Filter Boards</h3>
               </div>
               <button
                 onClick={() => setShowFilterPanel(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <FiX className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+            <div className="flex-1 overflow-y-auto px-5 py-6 space-y-8 scrollbar-thin">
+              {/* Keyword Section */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
                   Keyword
                 </label>
-                <input
-                  value={filterKeyword}
-                  onChange={(e) => setFilterKeyword(e.target.value)}
-                  placeholder="Search cards"
-                  className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="relative group">
+                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                  <input
+                    value={filterKeyword}
+                    onChange={(e) => setFilterKeyword(e.target.value)}
+                    placeholder="Search cards..."
+                    className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-50/50 focus:border-blue-400 text-sm transition-all"
+                  />
+                </div>
               </div>
 
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+              {/* Labels Section */}
+              <div className="space-y-4">
+                <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
                   Labels
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {availableLabels.length === 0 && (
-                    <p className="text-sm text-gray-500">No labels yet</p>
+                    <p className="text-xs text-gray-500 italic">No labels found on this board</p>
                   )}
                   {availableLabels.map((label) => {
                     const key = labelKey(label)
                     const checked = selectedLabels.includes(key)
                     return (
-                      <label key={key} className="flex items-center gap-3 text-sm text-gray-700">
+                      <label key={key} className="flex items-center gap-3 text-sm text-gray-700 cursor-pointer group">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleFilterValue(key, setSelectedLabels)}
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                          className="h-4 w-4 text-blue-600 rounded-[4px] border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
                         />
                         <span
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs text-white"
+                          className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold text-white shadow-sm transition-transform group-hover:scale-105"
                           style={{ backgroundColor: label.color }}
                         >
                           {label.text || label.color}
@@ -665,64 +702,66 @@ const BoardPage = () => {
                 </div>
               </div>
 
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+              {/* Due Date Section */}
+              <div className="space-y-4">
+                <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
                   Due date
                 </div>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2.5 text-sm text-gray-700">
                   {[
                     { value: 'overdue', label: 'Overdue' },
-                    { value: 'nextDay', label: 'Due in next day' },
+                    { value: 'nextDay', label: 'Due in next 24 hours' },
                     { value: 'nextWeek', label: 'Due in next week' },
                     { value: 'nextMonth', label: 'Due in next month' },
                     { value: 'noDates', label: 'No dates' },
                   ].map((item) => (
-                    <label key={item.value} className="flex items-center gap-3">
+                    <label key={item.value} className="flex items-center gap-3 cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={selectedDueDates.includes(item.value)}
                         onChange={() => toggleFilterValue(item.value, setSelectedDueDates)}
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        className="h-4 w-4 text-blue-600 rounded-[4px] border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
                       />
-                      <span>{item.label}</span>
+                      <span className="group-hover:text-gray-900 transition-colors">{item.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+              {/* Members Section */}
+              <div className="space-y-4">
+                <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
                   Members
                 </div>
-                <div className="space-y-2 text-sm text-gray-700">
+                <div className="space-y-2.5 text-sm text-gray-700">
                   {membersData?.members?.map((member) => (
-                    <label key={member.id} className="flex items-center gap-3">
+                    <label key={member.id} className="flex items-center gap-3 cursor-pointer group">
                       <input
                         type="checkbox"
                         checked={selectedMembers.includes(member.id)}
                         onChange={() => toggleFilterValue(member.id, setSelectedMembers)}
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                        className="h-4 w-4 text-blue-600 rounded-[4px] border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
                       />
-                      <span>{member.user.fullName}</span>
+                      <span className="group-hover:text-gray-900 transition-colors">{member.user.fullName}</span>
                     </label>
                   ))}
                   {!membersData?.members?.length && (
-                    <p className="text-sm text-gray-500">No members yet</p>
+                    <p className="text-xs text-gray-500 italic">No members assigned to this board</p>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-gray-200 px-5 py-4 flex justify-between items-center">
+            <div className="sticky bottom-0 border-t border-gray-100 px-5 py-4 flex justify-between items-center bg-gray-50/80 backdrop-blur-md">
               <button
                 onClick={clearFilters}
-                className="text-sm font-semibold text-blue-600 hover:text-blue-800"
+                className="text-xs font-bold text-[#dc2626] hover:text-[#b91c1c] transition-colors uppercase tracking-wider"
               >
                 Clear all
               </button>
               <button
                 onClick={() => setShowFilterPanel(false)}
-                className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-6 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md shadow-blue-200 transition-all hover:-translate-y-0.5"
               >
                 Done
               </button>

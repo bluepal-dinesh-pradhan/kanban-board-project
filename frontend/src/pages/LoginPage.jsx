@@ -73,8 +73,8 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center px-6 py-12 relative overflow-hidden">
-      <div className="hidden md:block fixed bottom-0 left-0 pointer-events-none opacity-70">
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center px-6 py-12 relative overflow-hidden animate-fade-in">
+      <div className="hidden md:block fixed bottom-0 left-0 pointer-events-none opacity-20 transition-opacity duration-1000">
         <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="20" y="158" width="190" height="58" rx="14" fill="#CFE4FF" />
           <rect x="32" y="140" width="170" height="20" rx="10" fill="#B9D8FF" />
@@ -99,7 +99,7 @@ const LoginPage = () => {
           <path d="M12 226H328" stroke="#BBD7FF" strokeWidth="6" strokeLinecap="round" />
         </svg>
       </div>
-      <div className="hidden md:block fixed bottom-0 right-0 pointer-events-none opacity-70">
+      <div className="hidden md:block fixed bottom-0 right-0 pointer-events-none opacity-20 transition-opacity duration-1000">
         <svg width="340" height="260" viewBox="0 0 340 260" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="170" y="150" width="130" height="66" rx="14" fill="#FFE4E6" />
           <rect x="180" y="162" width="46" height="40" rx="10" fill="#FDBA74" />
@@ -121,8 +121,8 @@ const LoginPage = () => {
           <rect x="40" y="210" width="260" height="6" rx="3" fill="#FBCFE8" />
         </svg>
       </div>
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+      <div className="w-full max-w-[420px]">
+        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-slate-100 p-10">
           <div className="flex flex-col items-center mb-6">
             <div className="h-10 w-10 rounded-lg bg-[#0052CC] flex items-center justify-center text-white font-semibold mb-3">
               K
@@ -154,8 +154,8 @@ const LoginPage = () => {
                     appearance-none relative block w-full px-3 py-3 h-11
                     border ${errors.email ? 'border-red-300 ring-red-100' : 'border-slate-300'}
                     placeholder-slate-400 text-slate-900 rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                    transition-all duration-200
+                    focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 focus:border-blue-500
+                    transition-all duration-300
                   `}
                   placeholder="you@company.com"
                 />
@@ -179,8 +179,8 @@ const LoginPage = () => {
                     appearance-none relative block w-full px-3 pr-10 py-3 h-11
                     border ${errors.password ? 'border-red-300 ring-red-100' : 'border-slate-300'}
                     placeholder-slate-400 text-slate-900 rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                    transition-all duration-200
+                    focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 focus:border-blue-500
+                    transition-all duration-300
                   `}
                   placeholder="Enter your password"
                 />
@@ -205,10 +205,10 @@ const LoginPage = () => {
               className="
                 group relative w-full flex justify-center py-3 px-4 h-12
                 border border-transparent text-sm font-semibold rounded-lg text-white
-                bg-[#0052CC] hover:bg-[#0747A6]
-                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                bg-[#0052CC] hover:bg-[#0047b3] active:bg-[#003d99]
+                focus:outline-none focus:ring-4 focus:ring-blue-100 focus:ring-offset-0
                 disabled:opacity-60 disabled:cursor-not-allowed
-                transition-all duration-200
+                transition-all duration-300 shadow-md shadow-blue-100
               "
             >
               {loading ? (
