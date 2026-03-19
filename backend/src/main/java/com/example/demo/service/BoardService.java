@@ -103,6 +103,20 @@ public class BoardService {
         return response;
     }
 
+    public BoardDto getBoard(Long boardId, Long userId) {
+        log.info("Fetching board {} for user {}", boardId, userId);
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new RuntimeException("Board not found"));
+        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
+                .orElseThrow(() -> {
+                    log.warn("Access denied for user {} to board {}", userId, boardId);
+                    return new RuntimeException("Access denied");
+                });
+        BoardDto dto = BoardDto.from(board, member.getRole().name());
+        log.info("Board {} fetched successfully", boardId);
+        return dto;
+    }
+
     @Transactional
         public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
             log.info("Inviting member {} to board {} by user {}", req.getEmail(), boardId, inviterId);

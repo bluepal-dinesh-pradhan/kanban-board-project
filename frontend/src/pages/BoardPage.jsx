@@ -26,7 +26,83 @@ const BoardPage = () => {
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
+  const [renamingColumnId, setRenamingColumnId] = useState(null)
+  const [renamedColumnTitle, setRenamedColumnTitle] = useState('')
+  const [isRenamingBoard, setIsRenamingBoard] = useState(false)
+  const [renamedBoardTitle, setRenamedBoardTitle] = useState('')
   const navigate = useNavigate();
+
+  const queryClient = useQueryClient()
+
+  const { data: boards } = useQuery({
+    queryKey: ['boards'],
+    queryFn: async () => {
+      const response = await boardAPI.getBoards()
+      return response.data.data
+    }
+  })
+
+  const { data: columns, isLoading } = useQuery({
+    queryKey: ['board', boardId, 'columns'],
+    queryFn: async () => {
+      const response = await boardAPI.getBoardColumns(boardId)
+      return response.data.data
+    }
+  })
+
+  const { data: membersData } = useQuery({
+    queryKey: ['boardMembers', boardId],
+    queryFn: async () => {
+      const response = await boardAPI.getBoardMembers(boardId)
+      return response.data.data
+    }
+  })
+
+  const { isOwner, isEditor, isViewer, canEdit, canInvite, isLoading: permissionsLoading } = usePermissions(boardId)
+  
+  const board = boards?.find((item) => String(item.id) === String(boardId))
+  const boardTitle = board?.title || 'Board'
+  const boardBg = getBoardGradient(board?.background || '#0079BF')
+  const memberCount = membersData?.members?.length || 1
+  const memberLabel = memberCount === 1 ? 'member' : 'members'
+
+  const handleRenameBoard = async () => {
+    if (!renamedBoardTitle.trim() || renamedBoardTitle === boardTitle) {
+      return setIsRenamingBoard(false)
+    }
+    try {
+      await boardAPI.updateBoard(boardId, { title: renamedBoardTitle.trim() })
+      queryClient.invalidateQueries(['boards'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('Board renamed')
+      setIsRenamingBoard(false)
+    } catch (e) {
+      toast.error('Failed to rename board')
+    }
+  }
+
+  const handleRenameColumn = async (columnId) => {
+    if (!renamedColumnTitle.trim()) return setRenamingColumnId(null)
+    try {
+      await columnAPI.updateColumn(columnId, { title: renamedColumnTitle.trim() })
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      setRenamingColumnId(null)
+    } catch (e) {
+      toast.error('Failed to rename column')
+    }
+  }
+
+  const handleDeleteColumn = async (columnId, colTitle) => {
+    if (window.confirm(`Delete "${colTitle}" and all its cards? This cannot be undone.`)) {
+      try {
+        await columnAPI.deleteColumn(columnId)
+        queryClient.invalidateQueries(['board', boardId, 'columns'])
+        toast.success('Column deleted')
+      } catch (e) {
+        toast.error('Failed to delete column')
+      }
+    }
+  }
 
   const deleteBoardMutation = useMutation({
     mutationFn: async () => {
@@ -53,31 +129,6 @@ const BoardPage = () => {
   const [selectedLabels, setSelectedLabels] = useState([])
   const [selectedDueDates, setSelectedDueDates] = useState([])
   const [selectedMembers, setSelectedMembers] = useState([])
-  const queryClient = useQueryClient()
-
-  const { data: columns, isLoading } = useQuery({
-    queryKey: ['board', boardId, 'columns'],
-    queryFn: async () => {
-      const response = await boardAPI.getBoardColumns(boardId)
-      return response.data.data
-    }
-  })
-
-  const { data: membersData } = useQuery({
-    queryKey: ['boardMembers', boardId],
-    queryFn: async () => {
-      const response = await boardAPI.getBoardMembers(boardId)
-      return response.data.data
-    }
-  })
-
-  const { isOwner, isEditor, isViewer, canEdit, canInvite, isLoading: permissionsLoading } = usePermissions(boardId)
-  
-  const board = queryClient.getQueryData(['boards'])?.find((item) => String(item.id) === String(boardId))
-  const boardTitle = board?.title || 'Board'
-  const boardBg = getBoardGradient(board?.background || '#0079BF')
-  const memberCount = membersData?.members?.length || 1
-  const memberLabel = memberCount === 1 ? 'member' : 'members'
 
   const labelKey = (label) => `${label.color || ''}|${label.text || ''}`
 
@@ -173,6 +224,8 @@ const BoardPage = () => {
           setShowInviteModal(false)
           setShowCreateCard(null)
           setShowCreateColumn(false)
+          setIsRenamingBoard(false)
+          setRenamingColumnId(null)
           break
       }
     }
@@ -319,9 +372,6 @@ const BoardPage = () => {
     return 'bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0]' // On track
   }
 
-
-
-
   if (isLoading || permissionsLoading) {
     return (
       <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -370,9 +420,33 @@ const BoardPage = () => {
       <div className="relative z-10 bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-white drop-shadow-lg">
-              {boardTitle}
-            </h1>
+            {isRenamingBoard ? (
+              <input
+                type="text"
+                value={renamedBoardTitle}
+                onChange={(e) => setRenamedBoardTitle(e.target.value)}
+                onBlur={handleRenameBoard}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameBoard()
+                  if (e.key === 'Escape') setIsRenamingBoard(false)
+                }}
+                className="text-xl font-bold text-white bg-white/20 border-b-2 border-white rounded px-2 py-0.5 focus:outline-none focus:bg-white/30 transition-all duration-200"
+                autoFocus
+              />
+            ) : (
+              <h1 
+                className={`text-xl font-bold text-white drop-shadow-lg flex items-center group/title cursor-pointer ${isOwner ? 'hover:bg-white/10 rounded px-2 -ml-2' : ''}`}
+                onClick={isOwner ? () => {
+                  setIsRenamingBoard(true)
+                  setRenamedBoardTitle(boardTitle)
+                } : null}
+              >
+                {boardTitle}
+                {isOwner && (
+                  <FiPlus className="ml-2 w-4 h-4 opacity-0 group-hover/title:opacity-100 transition-opacity rotate-45" title="Rename board" />
+                )}
+              </h1>
+            )}
             <div className="flex items-center space-x-2 text-white/80 text-sm">
               <FiStar className="w-4 h-4" />
               <span>{memberCount} {memberLabel}</span>
@@ -444,19 +518,56 @@ const BoardPage = () => {
           <div className="flex space-x-6 min-w-max pb-6">
             {columns?.map((column) => {
               const visibleCardCount = column.cards.filter(matchesFilters).length
+              const isRenaming = renamingColumnId === column.id
               return (
               <div key={column.id} className="w-80 bg-[#f4f5f7] rounded-[12px] flex-shrink-0 flex flex-col max-h-full">
                 <div className="p-3 pb-2 border-b-0">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-[13px] text-[#64748b] tracking-[0.5px] uppercase px-1">{column.title}</h3>
-                    <div className="flex items-center space-x-1.5">
+                  <div className="flex justify-between items-center group/col">
+                    {isRenaming ? (
+                      <input
+                        type="text"
+                        value={renamedColumnTitle}
+                        onChange={(e) => setRenamedColumnTitle(e.target.value)}
+                        onBlur={() => handleRenameColumn(column.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameColumn(column.id)
+                          if (e.key === 'Escape') setRenamingColumnId(null)
+                        }}
+                        className="flex-1 px-2 py-1 text-sm font-semibold text-slate-700 bg-white border border-blue-500 rounded focus:outline-none"
+                        autoFocus
+                      />
+                    ) : (
+                      <h3 className="font-semibold text-[13px] text-[#64748b] tracking-[0.5px] uppercase px-1 flex-1 truncate">
+                        {column.title}
+                      </h3>
+                    )}
+                    <div className="flex items-center space-x-1.5 shrink-0">
                       <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shadow-sm">
                         {visibleCardCount}
                       </span>
-                      {canEdit && (
-                        <button className="p-1 hover:bg-gray-100 rounded">
-                          <FiMoreHorizontal className="w-4 h-4 text-gray-500" />
-                        </button>
+                      {canEdit && !isRenaming && (
+                        <div className="relative group/menu">
+                          <button className="p-1 hover:bg-slate-200 rounded transition-colors">
+                            <FiMoreHorizontal className="w-4 h-4 text-slate-500" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-20 invisible group-hover/menu:visible opacity-0 group-hover/menu:opacity-100 transition-all duration-200">
+                            <button
+                              onClick={() => {
+                                setRenamingColumnId(column.id)
+                                setRenamedColumnTitle(column.title)
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-[13px] text-slate-700 hover:bg-slate-50 font-medium"
+                            >
+                              Rename
+                            </button>
+                            <button
+                              onClick={() => handleDeleteColumn(column.id, column.title)}
+                              className="w-full text-left px-3 py-1.5 text-[13px] text-red-600 hover:bg-red-50 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -518,10 +629,6 @@ const BoardPage = () => {
                                     <div className="flex items-center space-x-2.5">
                                       {card.dueDate && (
                                         <div className={`flex items-center gap-1 px-2 py-[2px] rounded-[4px] border text-[12px] font-medium ${getDueDateStyles(card.dueDate, column.title.toLowerCase() === 'done' || column.title.toLowerCase() === 'completed')}`}>
-
-
-
-
                                           <FiCalendar className="w-3 h-3" />
                                           <span className="leading-none">{timeAgo(card.dueDate)}</span>
                                         </div>
