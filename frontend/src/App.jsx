@@ -1,11 +1,14 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import LandingPage from './pages/LandingPage'
-import BoardListPage from './pages/BoardListPage'
-import BoardPage from './pages/BoardPage'
-import InvitePage from './pages/InvitePage'
+import PageLoader from './components/PageLoader'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const BoardListPage = lazy(() => import('./pages/BoardListPage'))
+const BoardPage = lazy(() => import('./pages/BoardPage'))
+const InvitePage = lazy(() => import('./pages/InvitePage'))
 
 // Private Route component
 const PrivateRoute = ({ children }) => {
@@ -58,49 +61,51 @@ const PublicRoute = ({ children }) => {
 
 function App() {
   return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        } 
-      />
-      <Route 
-        path="/register" 
-        element={
-          <PublicRoute>
-            <RegisterPage />
-          </PublicRoute>
-        } 
-      />
-      <Route 
-        path="/" 
-        element={
-          <PublicRoute>
-            <LandingPage />
-          </PublicRoute>
-        } 
-      />
-      <Route path="/invite" element={<InvitePage />} />
-      <Route 
-        path="/boards" 
-        element={
-          <PrivateRoute>
-            <BoardListPage />
-          </PrivateRoute>
-        } 
-      />
-      <Route 
-        path="/boards/:boardId" 
-        element={
-          <PrivateRoute>
-            <BoardPage />
-          </PrivateRoute>
-        } 
-      />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route 
+          path="/login" 
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/register" 
+          element={
+            <PublicRoute>
+              <RegisterPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/" 
+          element={
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          } 
+        />
+        <Route path="/invite" element={<InvitePage />} />
+        <Route 
+          path="/boards" 
+          element={
+            <PrivateRoute>
+              <BoardListPage />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/boards/:boardId" 
+          element={
+            <PrivateRoute>
+              <BoardPage />
+            </PrivateRoute>
+          } 
+        />
+      </Routes>
+    </Suspense>
   )
 }
 

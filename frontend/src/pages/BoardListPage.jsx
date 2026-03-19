@@ -1,16 +1,17 @@
-import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo, lazy, Suspense } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { FiPlus, FiFolder, FiHome, FiGrid, FiChevronDown, FiUsers, FiSettings } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import Navbar from '../components/Navbar'
 import BoardCard from '../components/BoardCard'
-import CreateBoardModal from '../components/CreateBoardModal'
 import { SkeletonBoard } from '../components/common/Skeleton'
 import EmptyState from '../components/common/EmptyState'
 import { useAuth } from '../context/AuthContext'
 import Avatar from '../components/common/Avatar'
 import toast from 'react-hot-toast'
+
+const CreateBoardModal = lazy(() => import('../components/CreateBoardModal'))
 
 const BoardListPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -21,13 +22,28 @@ const BoardListPage = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const { data: boards, isLoading, error } = useQuery({
-    queryKey: ['boards'],
-    queryFn: async () => {
-      const response = await boardAPI.getBoards()
-      return response.data.data
-    }
+  const PAGE_SIZE = 20
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['boards', 'paged'],
+    queryFn: async ({ pageParam = 0 }) => {
+      const response = await boardAPI.getBoards({ page: pageParam, size: PAGE_SIZE })
+      const payload = response.data.data
+      if (payload && Array.isArray(payload.content)) {
+        return payload
+      }
+      return { content: payload || [], hasNext: false }
+    },
+    getNextPageParam: (lastPage, pages) => (lastPage?.hasNext ? pages.length : undefined),
   })
+
+  const boards = data?.pages?.flatMap(page => page.content) || []
 
   const filteredBoards = useMemo(() => {
     if (!boards) return []
@@ -210,8 +226,22 @@ const BoardListPage = () => {
 
           {content}
 
+          {!isLoading && !error && hasNextPage && searchQuery.trim().length === 0 && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="px-5 py-2.5 text-sm font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-60"
+              >
+                {isFetchingNextPage ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
+          )}
+
           {showCreateModal && (
-            <CreateBoardModal onClose={() => setShowCreateModal(false)} />
+            <Suspense fallback={<div className="fixed inset-0 bg-black/40 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div></div>}>
+              <CreateBoardModal onClose={() => setShowCreateModal(false)} />
+            </Suspense>
           )}
 
           {showMembersModal && (

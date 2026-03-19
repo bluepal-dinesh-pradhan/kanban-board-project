@@ -4,9 +4,16 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "board_members", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"board_id", "user_id"})
-})
+@Table(
+    name = "board_members",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"board_id", "user_id"})
+    },
+    indexes = {
+        @Index(name = "idx_board_members_board_id", columnList = "board_id"),
+        @Index(name = "idx_board_members_user_id", columnList = "user_id")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class BoardMember {
 

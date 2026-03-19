@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft } from 'react-icons/fi'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3 } from 'react-icons/fi'
 import { cardAPI } from '../api/endpoints'
+import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import RichTextEditor from './RichTextEditor'
 
@@ -14,8 +15,13 @@ const LABEL_COLORS = [
   '#8b5cf6', // purple
 ]
 
-const CardModal = ({ cardId, onClose, isViewer = false }) => {
-  const [isEditing, setIsEditing] = useState(false)
+const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false, isViewer = false, canEdit: canEditProp }) => {
+  const canEdit = typeof canEditProp === 'boolean' ? canEditProp : (isOwner || isEditor)
+  const { user } = useAuth()
+  const [isTitleEditing, setIsTitleEditing] = useState(false)
+  const [isDescriptionEditing, setIsDescriptionEditing] = useState(false)
+  const [isDueDateEditing, setIsDueDateEditing] = useState(false)
+  const [dueDateDraft, setDueDateDraft] = useState('')
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -27,8 +33,20 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
   const [newLabel, setNewLabel] = useState({ color: LABEL_COLORS[0], text: '' })
   const queryClient = useQueryClient()
 
+  const toDateTimeLocal = (dateValue) => {
+    if (!dateValue) return ''
+    if (dateValue.includes('T')) return dateValue.slice(0, 16)
+    return `${dateValue}T00:00`
+  }
+
+  const toLocalDate = (dateValue) => {
+    if (!dateValue) return null
+    return dateValue.split('T')[0]
+  }
+
   const { data: card } = useQuery({
     queryKey: ['card', cardId],
+    enabled: Boolean(cardId),
     queryFn: async () => {
       const response = await cardAPI.getCard(cardId)
       return response.data.data
@@ -37,8 +55,9 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
 
   const { data: comments } = useQuery({
     queryKey: ['card', cardId, 'comments'],
+    enabled: Boolean(cardId),
     queryFn: async () => {
-      const response = await cardAPI.getCardComments(cardId)
+      const response = await cardAPI.getComments(cardId)
       return response.data.data
     }
   })
@@ -56,6 +75,8 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
         labels: card.labels || [],
         reminderType
       })
+      setDueDateDraft(toDateTimeLocal(card.dueDate || ''))
+      setIsDueDateEditing(false)
     }
   }, [card])
 
@@ -66,9 +87,14 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['card', cardId])
-      queryClient.invalidateQueries(['board'])
-      setIsEditing(false)
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      queryClient.invalidateQueries(['boards'])
+      setIsTitleEditing(false)
+      setIsDescriptionEditing(false)
       toast.success('Card updated successfully!', { id: 'card-updated' })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to update card', { id: 'card-update-error' })
     }
   })
 
@@ -84,190 +110,230 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
     }
   })
 
-  const handleSave = (e) => {
-    if (isViewer) return
-    e.preventDefault()
-    const reminderType =
-      formData.dueDate && formData.reminderType
-        ? formData.reminderType
-        : formData.dueDate
-          ? 'ONE_DAY_BEFORE'
-          : null
+  const archiveCardMutation = useMutation({
+    mutationFn: async () => {
+      const response = await cardAPI.archiveCard(cardId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      queryClient.invalidateQueries(['boards'])
+      toast.success('Card archived!', { id: 'card-archived' })
+      onClose()
+    }
+  })
 
-    updateCardMutation.mutate({
-      title: formData.title.trim(),
-      description: formData.description || null,
-      dueDate: formData.dueDate || null,
-      reminderType,
-      columnId: card.columnId,
-      labels: formData.labels
-    })
+  const deleteCardMutation = useMutation({
+    mutationFn: async () => {
+      const response = await cardAPI.deleteCard(cardId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['card', cardId] })
+      queryClient.removeQueries({ queryKey: ['card', cardId, 'comments'] })
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      queryClient.invalidateQueries(['boards'])
+      toast.success('Card deleted', { id: 'card-deleted' })
+      onClose()
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete card', { id: 'card-delete-error' })
+    }
+  })
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId) => {
+      const response = await cardAPI.deleteComment(boardId, cardId, commentId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'comments'])
+      toast.success('Comment deleted', { id: 'comment-deleted' })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete comment')
+    }
+  })
+
+  const handleDeleteComment = (commentId) => {
+    if (window.confirm('Are you sure you want to delete this comment?')) {
+      deleteCommentMutation.mutate(commentId)
+    }
   }
 
-  const handleDescriptionSave = (html) => {
-    if (isViewer) return
-    setFormData(prev => ({ ...prev, description: html }))
-    updateCardMutation.mutate({
-      title: formData.title.trim(),
-      description: html || null,
-      dueDate: formData.dueDate || null,
-      reminderType: formData.reminderType,
-      columnId: card.columnId,
-      labels: formData.labels
-    })
+  const handleTitleSave = () => {
+    if (!canEdit) return
+    updateCardMutation.mutate(formData)
   }
 
   const handleAddComment = (e) => {
-    if (isViewer) return
     e.preventDefault()
-    if (newComment.trim()) {
-      addCommentMutation.mutate(newComment.trim())
+    if (!newComment.trim()) return
+    addCommentMutation.mutate(newComment)
+  }
+
+  const handleRemoveLabel = (labelId) => {
+    if (!canEdit) return
+    if (window.confirm('Are you sure you want to remove this label?')) {
+      const newLabels = formData.labels.filter(l => l.id !== labelId)
+      setFormData(prev => ({ ...prev, labels: newLabels }))
+      updateCardMutation.mutate({ ...formData, labels: newLabels })
     }
   }
 
   const handleAddLabel = () => {
-    if (isViewer) return
-    if (newLabel.text.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        labels: [...prev.labels, { ...newLabel, text: newLabel.text.trim(), id: Date.now() }]
-      }))
-      setNewLabel({ color: LABEL_COLORS[0], text: '' })
-    }
+    if (!canEdit) return
+    if (!newLabel.text.trim()) return
+    const newLabels = [...formData.labels, { ...newLabel }]
+    setFormData(prev => ({ ...prev, labels: newLabels }))
+    updateCardMutation.mutate({ ...formData, labels: newLabels })
+    setNewLabel({ color: LABEL_COLORS[0], text: '' })
   }
 
-  const handleRemoveLabel = (labelId) => {
-    if (isViewer) return
-    setFormData(prev => ({
-      ...prev,
-      labels: prev.labels.filter(label => label.id !== labelId)
-    }))
+  const handleDescriptionSave = (content) => {
+    if (!canEdit) return
+    setFormData(prev => ({ ...prev, description: content }))
+    updateCardMutation.mutate({ ...formData, description: content })
+  }
+
+  const handleDueDateChange = (e) => {
+    if (!canEdit) return
+    const newDate = e.target.value
+    setDueDateDraft(newDate)
+    setIsDueDateEditing(true)
+  }
+
+  const handleRemoveDueDate = () => {
+    if (!canEdit) return
+    setDueDateDraft('')
+    setIsDueDateEditing(true)
+  }
+
+  const handleSetDueDate = () => {
+    if (!canEdit) return
+    const payloadDate = toLocalDate(dueDateDraft)
+    setFormData(prev => ({ ...prev, dueDate: payloadDate || '' }))
+    updateCardMutation.mutate({ ...formData, dueDate: payloadDate })
+    setIsDueDateEditing(false)
+  }
+
+  const handleCancelDueDate = () => {
+    setDueDateDraft(toDateTimeLocal(formData.dueDate || ''))
+    setIsDueDateEditing(false)
+  }
+
+  const handleReminderChange = (e) => {
+    if (!canEdit) return
+    const newReminder = e.target.value
+    setFormData(prev => ({ ...prev, reminderType: newReminder }))
+    updateCardMutation.mutate({ ...formData, reminderType: newReminder })
+  }
+
+  const handleDeleteCard = () => {
+    if (!canEdit) return
+    if (window.confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+      deleteCardMutation.mutate()
+    }
   }
 
   if (!card) return null
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start justify-center z-50 overflow-y-auto py-10 transition-opacity">
-      <div className="bg-[#f4f5f7] rounded-xl shadow-2xl max-w-3xl w-full mx-4 border border-gray-200 animate-scale-in flex flex-col relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 hover:bg-gray-200 p-2 rounded-full transition-colors duration-200 z-10"
-        >
-          <FiX className="h-5 w-5" />
-        </button>
-
-        <div className="p-8 pb-4">
-          <div className="flex items-start gap-3 mb-6">
-            <FiList className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              {isEditing ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-start bg-gray-50/50">
+          <div className="flex-1 mr-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FiList className="h-5 w-5 text-blue-600" />
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">In column {card.columnTitle}</span>
+            </div>
+            {isTitleEditing ? (
+              <form onSubmit={(e) => { e.preventDefault(); handleTitleSave() }} className="space-y-3">
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full text-2xl font-bold bg-white px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all shadow-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsTitleEditing(false)
+                      setFormData(prev => ({ ...prev, title: card.title }))
+                    }
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleTitleSave()
+                    }
+                  }}
+                  className="text-2xl font-bold w-full px-3 py-2 border-2 border-blue-500 rounded-xl outline-none shadow-sm shadow-blue-50"
                   autoFocus
                 />
-              ) : (
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-bold text-gray-900 leading-tight tracking-tight">{card.title}</h2>
-                  {isViewer && (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-gray-200/80 text-gray-700">
-                      View only
-                    </span>
-                  )}
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm">Save</button>
+                  <button type="button" onClick={() => {
+                    setIsTitleEditing(false)
+                    setFormData(prev => ({ ...prev, title: card.title }))
+                  }} className="text-gray-500 hover:text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
                 </div>
-              )}
-            </div>
+              </form>
+            ) : (
+              <div className="flex items-start gap-2">
+                <h2 className="text-2xl font-bold text-gray-900 leading-tight px-1 rounded transition-colors">
+                  {formData.title}
+                </h2>
+                {canEdit && (
+                  <button
+                    onClick={() => setIsTitleEditing(true)}
+                    className="mt-1 p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Edit title"
+                  >
+                    <FiEdit3 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all">
+            <FiX className="h-6 w-6" />
+          </button>
+        </div>
 
-          <div className="flex flex-col md:flex-row gap-8">
-            <div className="flex-1 space-y-8">
-              {/* Status Row (Labels & Due Date viewing mode) */}
-              {!isEditing && (
-                <div className="flex flex-wrap items-start gap-8 ml-9">
-                  {card.labels?.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Labels</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {card.labels.map((label) => (
-                          <span
-                            key={label.id}
-                            className="inline-block px-3 py-1 text-sm font-semibold rounded-md text-white shadow-sm"
-                            style={{ backgroundColor: label.color }}
-                          >
-                            {label.text}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {card.dueDate && (
-                    <div>
-                      <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Due Date</h3>
-                      <div className="flex items-center text-sm text-gray-800 bg-gray-200/60 px-3 py-1.5 rounded-md font-medium">
-                        <FiClock className="mr-2 h-4 w-4 text-gray-600" />
-                        {new Date(card.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </div>
-                    </div>
-                  )}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8 custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="md:col-span-2 space-y-8">
+              {/* Labels Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <FiTag className="h-6 w-6 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Labels</h3>
                 </div>
-              )}
-
-              {/* Editing controls for Labels & Due Date */}
-              {isEditing && (
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm ml-9 space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Due Date</label>
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FiCalendar className="text-gray-400" />
-                          </div>
-                          <input
-                            type="date"
-                            value={formData.dueDate}
-                            onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-sm transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Reminder</label>
-                      <select
-                        value={formData.reminderType}
-                        onChange={(e) => setFormData(prev => ({ ...prev, reminderType: e.target.value }))}
-                        disabled={!formData.dueDate}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 transition-all"
+                <div className="pl-9 space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {formData.labels.map((label, index) => (
+                      <div
+                        key={label.id || index}
+                        className="group relative inline-flex items-center"
                       >
-                        <option value="ONE_DAY_BEFORE">1 day before (9 AM)</option>
-                        <option value="TWO_DAYS_BEFORE">2 days before (9 AM)</option>
-                        <option value="ONE_WEEK_BEFORE">1 week before (9 AM)</option>
-                        <option value="AT_DUE_TIME">At due time (9 AM)</option>
-                      </select>
-                    </div>
+                        <span
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-transform group-hover:scale-105"
+                          style={{ backgroundColor: label.color }}
+                        >
+                          {label.text}
+                        </span>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleRemoveLabel(label.id)}
+                            className="absolute -top-1 -right-1 bg-white text-gray-500 rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-all hover:text-red-500"
+                          >
+                            <FiX className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {formData.labels.length === 0 && <span className="text-sm text-gray-400 italic">No labels added</span>}
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Labels</label>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {formData.labels.map((label) => (
-                        <span
-                          key={label.id}
-                          className="inline-flex items-center px-3 py-1 min-w-[50px] justify-between text-sm font-semibold rounded-md text-white cursor-pointer hover:opacity-90 shadow-sm transition-opacity"
-                          style={{ backgroundColor: label.color }}
-                          onClick={() => handleRemoveLabel(label.id)}
-                        >
-                          {label.text || '\u00A0'}
-                          <FiX className="ml-2 h-3.5 w-3.5 opacity-80" />
-                        </span>
-                      ))}
-                      {formData.labels.length === 0 && <span className="text-sm text-gray-400 italic">No labels added</span>}
-                    </div>
-
+                  {canEdit && (
                     <div className="flex items-center gap-2">
                       <select
                         value={newLabel.color}
@@ -297,15 +363,23 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
                         Add
                       </button>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="flex items-start gap-3">
                 <FiAlignLeft className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
                 <div className="flex-1 w-full relative">
-                  <div className="flex items-center justify-between mb-3 mt-1">
+                <div className="flex items-center justify-between mb-3 mt-1">
                     <h3 className="text-lg font-semibold text-gray-900">Description</h3>
+                    {canEdit && !isDescriptionEditing && (
+                      <button
+                        onClick={() => setIsDescriptionEditing(true)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
                   </div>
                   
                   <RichTextEditor 
@@ -315,8 +389,16 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
                       setFormData(prev => ({ ...prev, description: card.description || '' }))
                     }}
                     placeholder="Add a more detailed description..."
-                    editable={!isViewer}
+                    editable={canEdit}
+                    allowClickToEdit={false}
+                    forceEditing={isDescriptionEditing}
+                    onEditingChange={setIsDescriptionEditing}
                   />
+                  {canEdit && isDescriptionEditing && (
+                    <div className="text-xs text-gray-400 mt-2">
+                      Tip: Use the toolbar above to format text, then click Save.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -326,30 +408,29 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
                 <div className="flex-1 w-full">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 mt-1">Activity</h3>
                   
-                  {isViewer ? (
-                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm text-yellow-800 mb-6 flex items-center shadow-sm">
-                      <FiMessageSquare className="mr-2 h-5 w-5 text-yellow-600" />
-                      You have view-only access. Comments and edits are disabled.
+                  {isViewer && (
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-sm text-slate-500 mb-6 flex items-center">
+                      <FiMessageSquare className="mr-2 h-5 w-5 text-slate-400" />
+                      You are in view-only mode, but you can still participate in the discussion.
                     </div>
-                  ) : (
-                    <form onSubmit={handleAddComment} className="mb-8 bg-white p-2 rounded-xl border border-gray-300 focus-within:ring-4 focus-within:ring-blue-100 focus-within:border-blue-500 shadow-sm transition-all duration-200">
-                      <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Write a comment..."
-                        className="w-full px-3 py-2 bg-transparent outline-none resize-y min-h-[60px] text-[15px] placeholder-gray-500 text-gray-800"
-                      />
-                      <div className="flex justify-end pt-2 pb-1 pr-1">
-                        <button
-                          type="submit"
-                          disabled={!newComment.trim() || addCommentMutation.isPending}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm focus:ring-4 focus:ring-blue-100"
-                        >
-                          Save comment
-                        </button>
-                      </div>
-                    </form>
                   )}
+                  <form onSubmit={handleAddComment} className="mb-8 bg-white p-2 rounded-xl border border-gray-300 focus-within:ring-4 focus-within:ring-blue-100 focus-within:border-blue-500 shadow-sm transition-all duration-200">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Write a comment..."
+                      className="w-full px-3 py-2 bg-transparent outline-none resize-y min-h-[60px] text-[15px] placeholder-gray-500 text-gray-800"
+                    />
+                    <div className="flex justify-end pt-2 pb-1 pr-1">
+                      <button
+                        type="submit"
+                        disabled={!newComment.trim() || addCommentMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors shadow-sm focus:ring-4 focus:ring-blue-100"
+                      >
+                        Save comment
+                      </button>
+                    </div>
+                  </form>
 
                   <div className="space-y-4">
                     {comments?.length === 0 && (
@@ -370,6 +451,16 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
                                 month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                               })}
                             </span>
+                            {(isOwner || comment.author?.id === user?.id) && (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                disabled={deleteCommentMutation.isPending}
+                                className="ml-auto p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete comment"
+                              >
+                                <FiTrash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                           <div className="bg-white p-3.5 rounded-b-xl rounded-tr-xl border border-gray-200 shadow-sm text-[15px] text-gray-800 whitespace-pre-wrap leading-relaxed">
                             {comment.content}
@@ -382,27 +473,92 @@ const CardModal = ({ cardId, onClose, isViewer = false }) => {
               </div>
             </div>
 
-            {/* Right Sidebar */}
-            <div className="w-full md:w-48 flex flex-col gap-6 shrink-0 mt-2 md:mt-0">
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Actions</h4>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  disabled={isViewer}
-                  className="w-full flex items-center px-4 py-2 bg-gray-200/70 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiTag className="mr-2.5 h-4 w-4" />
-                  Labels
-                </button>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  disabled={isViewer}
-                  className="w-full flex items-center px-4 py-2 bg-gray-200/70 hover:bg-gray-300 text-gray-800 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FiCalendar className="mr-2.5 h-4 w-4" />
-                  Dates
-                </button>
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-600 mb-2">
+                    <FiCalendar className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Due Date</span>
+                    {canEdit && formData.dueDate && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveDueDate}
+                        className="ml-auto text-xs font-semibold text-red-500 hover:text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={dueDateDraft}
+                    onChange={handleDueDateChange}
+                    readOnly={!canEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
+                  />
+                  {canEdit && isDueDateEditing && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetDueDate}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Set
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelDueDate}
+                        className="px-3 py-1.5 text-gray-600 text-xs font-semibold hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-600 mb-2">
+                    <FiClock className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Reminder</span>
+                  </div>
+                  <select
+                    value={formData.reminderType}
+                    onChange={handleReminderChange}
+                    disabled={!canEdit}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium bg-white"
+                  >
+                    <option value="NONE">None</option>
+                    <option value="AT_TIME">At time of due date</option>
+                    <option value="FIVE_MIN_BEFORE">5 minutes before</option>
+                    <option value="TEN_MIN_BEFORE">10 minutes before</option>
+                    <option value="FIFTEEN_MIN_BEFORE">15 minutes before</option>
+                    <option value="ONE_HOUR_BEFORE">1 hour before</option>
+                    <option value="TWO_HOURS_BEFORE">2 hours before</option>
+                    <option value="ONE_DAY_BEFORE">1 day before</option>
+                    <option value="TWO_DAYS_BEFORE">2 days before</option>
+                  </select>
+                </div>
               </div>
+
+              {canEdit && !isViewer && (
+                <div className="space-y-4">
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Actions</div>
+                  <button
+                    onClick={() => archiveCardMutation.mutate()}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-xl text-sm font-semibold border border-gray-200 hover:border-red-200 transition-all shadow-sm"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Archive Card
+                  </button>
+                  <button
+                    onClick={handleDeleteCard}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white hover:bg-red-700 rounded-xl text-sm font-semibold transition-all shadow-sm"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                    Delete Card
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

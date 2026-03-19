@@ -8,7 +8,7 @@ import { timeAgo } from '../utils/timeAgo'
 
 const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
   const { user, logout } = useAuth()
-  const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications } = useNotifications()
+  const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications, loadMoreNotifications, hasMore, loadingMore } = useNotifications()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [internalSearch, setInternalSearch] = useState('')
@@ -51,7 +51,7 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
   const handleNotificationToggle = () => {
     setShowNotifications(!showNotifications)
     if (!showNotifications) {
-      fetchNotifications()
+      fetchNotifications({ page: 0, merge: false })
     }
   }
 
@@ -90,13 +90,15 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
           </div>
 
           <div className="flex items-center gap-3 text-white">
-            <button
-              onClick={onCreate}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-white/20 hover:bg-white/30 transition-colors duration-200 text-sm font-semibold border border-white/[0.15] backdrop-blur-sm"
-            >
-              <FiPlus className="w-4 h-4" />
-              Create
-            </button>
+            {onCreate && (
+              <button
+                onClick={onCreate}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-white/20 hover:bg-white/30 transition-colors duration-200 text-sm font-semibold border border-white/[0.15] backdrop-blur-sm"
+              >
+                <FiPlus className="w-4 h-4" />
+                Create
+              </button>
+            )}
             <div className="relative" ref={notificationRef}>
               <button
                 onClick={handleNotificationToggle}
@@ -172,7 +174,16 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
                           </div>
                         ))}
                       </div>
-                      <div className="p-2 border-t border-gray-100 bg-gray-50/50">
+                      <div className="p-2 border-t border-gray-100 bg-gray-50/50 space-y-1">
+                        {hasMore && (
+                          <button
+                            onClick={loadMoreNotifications}
+                            disabled={loadingMore}
+                            className="block w-full py-2 text-center text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-white rounded-lg transition-all disabled:opacity-60"
+                          >
+                            {loadingMore ? 'Loading...' : 'Load more'}
+                          </button>
+                        )}
                         <Link to="/boards" className="block w-full py-2 text-center text-xs font-semibold text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg transition-all">
                           View all notifications
                         </Link>

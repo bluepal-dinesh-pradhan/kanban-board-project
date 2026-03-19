@@ -5,9 +5,16 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "invitations", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"board_id", "email"})
-})
+@Table(
+    name = "invitations",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"board_id", "email"})
+    },
+    indexes = {
+        @Index(name = "idx_invitations_email_status", columnList = "email, status"),
+        @Index(name = "idx_invitations_board_status", columnList = "board_id, status")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Invitation {
 

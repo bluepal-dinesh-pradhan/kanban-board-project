@@ -16,8 +16,12 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const { isAuthenticated } = useAuth()
   const seenNotificationIds = useRef(new Set())
+  const PAGE_SIZE = 20
 
   // Request browser notification permission on mount
   useEffect(() => {
@@ -26,18 +30,72 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated])
 
-  const fetchNotifications = async () => {
+  const normalizePageData = (data) => {
+    if (data && Array.isArray(data.content)) {
+      return { items: data.content, hasNext: !!data.hasNext }
+    }
+    if (Array.isArray(data)) {
+      return { items: data, hasNext: false }
+    }
+    return { items: [], hasNext: false }
+  }
+
+  const fetchNotifications = async ({ page: pageParam = 0, append = false, merge = false } = {}) => {
     if (!isAuthenticated) return
     
     try {
-      setLoading(true)
-      const response = await notificationAPI.getNotifications()
-      setNotifications(response.data.data)
+      if (append) {
+        setLoadingMore(true)
+      } else {
+        setLoading(true)
+      }
+      const response = await notificationAPI.getNotifications({ page: pageParam, size: PAGE_SIZE })
+      const { items, hasNext } = normalizePageData(response.data.data)
+      if (!merge) {
+        setHasMore(hasNext)
+        setPage(pageParam)
+      }
+
+      if (append) {
+        setNotifications(prev => {
+          const seen = new Set(prev.map(n => n.id))
+          const merged = [...prev]
+          items.forEach(item => {
+            if (!seen.has(item.id)) {
+              merged.push(item)
+              seen.add(item.id)
+            }
+          })
+          return merged
+        })
+        return
+      }
+
+      if (merge) {
+        if (page === 0) {
+          setHasMore(hasNext)
+          setPage(0)
+        }
+        setNotifications(prev => {
+          const incomingIds = new Set(items.map(n => n.id))
+          const rest = prev.filter(n => !incomingIds.has(n.id))
+          return [...items, ...rest]
+        })
+        return
+      }
+
+      setNotifications(items)
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
+  }
+
+  const loadMoreNotifications = async () => {
+    if (loadingMore || !hasMore) return
+    await fetchNotifications({ page: page + 1, append: true })
   }
 
   const fetchUnreadCount = async () => {
@@ -117,27 +175,53 @@ export const NotificationProvider = ({ children }) => {
   }, [notifications])
 
   // Poll for new notifications every 2 minutes
+  // Poll for new notifications
   useEffect(() => {
-    if (!isAuthenticated) return
+    const token = localStorage.getItem('accessToken');
+    if (!isAuthenticated || !token) {
+      // Clear notifications on logout
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
 
-    fetchNotifications()
-    fetchUnreadCount()
+    // Small delay to ensure token is set in axios interceptor
+    const initialTimeout = setTimeout(() => {
+      fetchNotifications({ page: 0, merge: false });
+      fetchUnreadCount();
+      seenNotificationIds.current = new Set();
+    }, 500);
 
-    seenNotificationIds.current = new Set()
+    const interval = setInterval(async () => {
+      const currentToken = localStorage.getItem('accessToken');
+      if (!currentToken) {
+        clearInterval(interval);
+        return;
+      }
+      try {
+        await fetchUnreadCount();
+        await fetchNotifications({ page: 0, merge: true });
+      } catch (error) {
+        if (error.response?.status === 401) {
+          clearInterval(interval);
+        }
+      }
+    }, 30000);
 
-    const interval = setInterval(() => {
-      fetchUnreadCount()
-      fetchNotifications()
-    }, 30000) // 30 seconds
-
-    return () => clearInterval(interval)
-  }, [isAuthenticated])
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
 
   const value = {
     notifications,
     unreadCount,
     loading,
+    loadingMore,
+    hasMore,
     fetchNotifications,
+    loadMoreNotifications,
     fetchUnreadCount,
     markAsRead,
     markAllAsRead,

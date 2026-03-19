@@ -9,12 +9,14 @@ import com.example.demo.repository.BoardMemberRepository;
 import com.example.demo.repository.InvitationRepository;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class InvitationService {
 
     private final InvitationRepository invitationRepository;
@@ -23,16 +25,22 @@ public class InvitationService {
 
     @Transactional(readOnly = true)
     public InvitationDetailsDto getInvitationDetails(String token) {
+        log.info("Fetching invitation details");
         Invitation invitation = invitationRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invitation not found"));
+                .orElseThrow(() -> {
+                    log.warn("Invitation not found for provided token");
+                    return new RuntimeException("Invitation not found");
+                });
 
         if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Invitation {} has expired", invitation.getId());
             throw new RuntimeException("Invitation has expired");
         }
 
         boolean userExists = userRepository.existsByEmail(invitation.getEmail());
+        log.debug("User exists for invitation {}: {}", invitation.getId(), userExists);
 
-        return new InvitationDetailsDto(
+        InvitationDetailsDto dto = new InvitationDetailsDto(
                 invitation.getEmail(),
                 invitation.getBoard().getId(),
                 invitation.getBoard().getTitle(),
@@ -41,23 +49,32 @@ public class InvitationService {
                 invitation.getExpiresAt(),
                 userExists
         );
+        log.info("Invitation details fetched successfully for invitation {}", invitation.getId());
+        return dto;
     }
 
     @Transactional
     public InvitationAcceptResponse acceptInvitation(String token, Long userId) {
+        log.info("Accepting invitation for user {}", userId);
         Invitation invitation = invitationRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invitation not found"));
+                .orElseThrow(() -> {
+                    log.warn("Invitation not found for provided token");
+                    return new RuntimeException("Invitation not found");
+                });
 
         if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Invitation {} has expired", invitation.getId());
             throw new RuntimeException("Invitation has expired");
         }
 
         if (invitation.getStatus() == Invitation.InvitationStatus.DECLINED) {
+            log.warn("Invitation {} has been declined", invitation.getId());
             throw new RuntimeException("Invitation has been declined");
         }
 
         User user = userRepository.findById(userId).orElseThrow();
         if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
+            log.warn("Invitation {} was sent to different email than user {}", invitation.getId(), userId);
             throw new RuntimeException("This invitation was sent to a different email");
         }
 
@@ -75,6 +92,8 @@ public class InvitationService {
             invitationRepository.save(invitation);
         }
 
-        return new InvitationAcceptResponse(invitation.getBoard().getId());
+        InvitationAcceptResponse response = new InvitationAcceptResponse(invitation.getBoard().getId());
+        log.info("Invitation {} accepted successfully by user {}", invitation.getId(), userId);
+        return response;
     }
 }

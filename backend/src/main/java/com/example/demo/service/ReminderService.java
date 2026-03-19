@@ -25,6 +25,7 @@ public class ReminderService {
 
     @Transactional
     public void createReminder(Card card, CardReminder.ReminderType reminderType) {
+        log.info("Creating reminders for card {} with reminder type {}", card.getId(), reminderType);
         if (card.getDueDate() == null) {
             log.info("Skipping reminder creation for card {}: due date is null", card.getId());
             return; // No due date, no reminder needed
@@ -57,22 +58,27 @@ public class ReminderService {
             cardReminderRepository.save(reminder);
             log.info("Created reminder for card {} for user {} at {}", card.getId(), user.getId(), reminderDateTime);
         }
+        log.info("Reminders created successfully for card {}", card.getId());
     }
 
     private LocalDateTime calculateReminderDateTime(LocalDate dueDate, CardReminder.ReminderType reminderType) {
+        log.debug("Calculating reminder time for dueDate {} and type {}", dueDate, reminderType);
         LocalTime reminderTime = LocalTime.of(9, 0); // 9 AM default
         
-        return switch (reminderType) {
+        LocalDateTime reminderDateTime = switch (reminderType) {
             case AT_DUE_TIME -> dueDate.atTime(reminderTime);
             case ONE_DAY_BEFORE -> dueDate.minusDays(1).atTime(reminderTime);
             case TWO_DAYS_BEFORE -> dueDate.minusDays(2).atTime(reminderTime);
             case ONE_WEEK_BEFORE -> dueDate.minusWeeks(1).atTime(reminderTime);
         };
+        log.debug("Calculated reminder time {}", reminderDateTime);
+        return reminderDateTime;
     }
 
     @Scheduled(fixedRate = 60000) // Run every 1 minute (60000 ms)
     @Transactional
     public void processReminders() {
+        log.info("Processing reminders");
         LocalDateTime now = LocalDateTime.now();
         List<CardReminder> dueReminders = cardReminderRepository.findDueReminders(now);
 
@@ -97,9 +103,11 @@ public class ReminderService {
                 log.error("Failed to process reminder {}: {}", reminder.getId(), e.getMessage(), e);
             }
         }
+        log.info("Reminder processing completed");
     }
 
     private void sendReminderNotifications(CardReminder reminder) {
+        log.info("Sending reminder notifications for reminder {}", reminder.getId());
         Card card = reminder.getCard();
         User user = reminder.getUser();
         String boardTitle = card.getColumn().getBoard().getTitle();
@@ -120,6 +128,7 @@ public class ReminderService {
     }
 
     private void sendEmailReminder(User user, Card card, String boardTitle) {
+        log.info("Sending email reminder to user {} for card {}", user.getId(), card.getId());
         try {
             emailService.sendDueDateReminder(
                 user.getEmail(),
@@ -128,6 +137,7 @@ public class ReminderService {
                 boardTitle,
                 card.getDueDate()
             );
+            log.info("Email reminder sent successfully to user {} for card {}", user.getId(), card.getId());
         } catch (Exception e) {
             log.error("Failed to send email reminder to {}: {}", user.getEmail(), e.getMessage());
         }
@@ -135,6 +145,8 @@ public class ReminderService {
 
     @Transactional
     public void deleteCardReminders(Long cardId) {
+        log.info("Deleting reminders for card {}", cardId);
         cardReminderRepository.deleteByCardId(cardId);
+        log.info("Reminders deleted for card {}", cardId);
     }
 }
