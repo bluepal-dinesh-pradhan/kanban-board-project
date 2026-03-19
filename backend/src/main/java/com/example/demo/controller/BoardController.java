@@ -62,6 +62,22 @@ public class BoardController {
     }
 
     @Operation(
+            summary = "Get a board by ID",
+            description = "Returns basic details for a specific board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Board fetched"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Board not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<BoardDto>> getBoard(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.ok(ApiResponse.ok("Board fetched", boardService.getBoard(id, user.getId())));
+    }
+
+    @Operation(
             summary = "Update board",
             description = "Updates board title or background."
     )

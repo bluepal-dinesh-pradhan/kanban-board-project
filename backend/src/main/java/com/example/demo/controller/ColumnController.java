@@ -77,4 +77,23 @@ public class ColumnController {
         columnService.delete(columnId, user.getId());
         return ResponseEntity.ok(ApiResponse.ok("Column deleted successfully"));
     }
+
+    @Operation(
+            summary = "Move column",
+            description = "Reorders a column to a new position."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column moved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid column id or position"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @PostMapping("/columns/{columnId}/move")
+    public ResponseEntity<ApiResponse<Void>> moveColumn(
+            @PathVariable Long columnId,
+            @RequestBody MoveColumnRequest req,
+            @AuthenticationPrincipal UserPrincipal user) {
+        log.info("Move column {} to position {} requested by user {}", columnId, req.getNewPosition(), user.getId());
+        columnService.moveColumn(columnId, req.getNewPosition(), user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Column moved successfully", null));
+    }
 }

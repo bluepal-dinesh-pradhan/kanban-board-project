@@ -82,4 +82,35 @@ public class ColumnService {
 
         log.info("Column {} deleted successfully", columnId);
     }
+
+    @Transactional
+    public void moveColumn(Long columnId, int newPosition, Long userId) {
+        log.info("Moving column {} to position {} by user {}", columnId, newPosition, userId);
+        BoardColumn column = columnRepository.findById(columnId)
+                .orElseThrow(() -> new RuntimeException("Column not found"));
+        Long boardId = column.getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        List<BoardColumn> columns = columnRepository.findByBoardIdAndArchivedFalseOrderByPositionAsc(boardId);
+        
+        int actualOldIndex = -1;
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getId().equals(columnId)) {
+                actualOldIndex = i;
+                break;
+            }
+        }
+        
+        if (actualOldIndex == -1) return;
+        if (actualOldIndex == newPosition) return;
+
+        BoardColumn movedCol = columns.remove(actualOldIndex);
+        columns.add(Math.min(newPosition, columns.size()), movedCol);
+
+        for (int i = 0; i < columns.size(); i++) {
+            columns.get(i).setPosition(i);
+        }
+        columnRepository.saveAll(columns);
+        log.info("Column {} moved to position {} successfully", columnId, newPosition);
+    }
 }
