@@ -4,7 +4,12 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "card_labels")
+@Table(
+    name = "card_labels",
+    indexes = {
+        @Index(name = "idx_card_labels_card_id", columnList = "card_id")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CardLabel {
 

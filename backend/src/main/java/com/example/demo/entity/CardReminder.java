@@ -5,7 +5,14 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "card_reminders")
+@Table(
+    name = "card_reminders",
+    indexes = {
+        @Index(name = "idx_card_reminders_card_id", columnList = "card_id"),
+        @Index(name = "idx_card_reminders_card_user", columnList = "card_id, user_id"),
+        @Index(name = "idx_card_reminders_due_triggered", columnList = "reminder_date_time, triggered")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CardReminder {
 

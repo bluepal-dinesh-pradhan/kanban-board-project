@@ -4,10 +4,15 @@ import com.example.demo.entity.Board;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
     @Query("SELECT b FROM Board b JOIN b.members m WHERE m.user.id = :userId AND b.archived = false")
     List<Board> findAllByMemberUserId(@Param("userId") Long userId);
+
+    @Query("SELECT b FROM Board b JOIN b.members m WHERE m.user.id = :userId AND b.archived = false")
+    Page<Board> findAllByMemberUserId(@Param("userId") Long userId, Pageable pageable);
 }

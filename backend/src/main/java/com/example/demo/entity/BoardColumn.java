@@ -6,7 +6,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "board_columns")
+@Table(
+    name = "board_columns",
+    indexes = {
+        @Index(name = "idx_board_columns_board_id", columnList = "board_id"),
+        @Index(name = "idx_board_columns_board_archived", columnList = "board_id, archived"),
+        @Index(name = "idx_board_columns_board_position", columnList = "board_id, position")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class BoardColumn {
 

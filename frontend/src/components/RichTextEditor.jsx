@@ -8,7 +8,7 @@ import { TextAlign } from '@tiptap/extension-text-align'
 import { Color } from '@tiptap/extension-color'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Highlight } from '@tiptap/extension-highlight'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { 
   FiBold, 
   FiItalic, 
@@ -286,37 +286,48 @@ const MenuBar = ({ editor }) => {
   )
 }
 
-const RichTextEditor = ({ content, onSave, onCancel, placeholder, editable = false }) => {
+const RichTextEditor = ({
+  content,
+  onSave,
+  onCancel,
+  placeholder,
+  editable = false,
+  allowClickToEdit = true,
+  forceEditing,
+  onEditingChange
+}) => {
   const [isEditing, setIsEditing] = useState(false)
   const [htmlContent, setHtmlContent] = useState(content || '')
 
+  const extensions = useMemo(() => ([
+    StarterKit.configure({
+      bulletList: {
+        keepMarks: true,
+        keepAttributes: false,
+      },
+      orderedList: {
+        keepMarks: true,
+        keepAttributes: false,
+      },
+    }),
+    Placeholder.configure({
+      placeholder: placeholder || 'Add a more detailed description...',
+    }),
+    Link.configure({
+      openOnClick: false,
+    }),
+    Image,
+    Underline,
+    TextAlign.configure({
+      types: ['heading', 'paragraph'],
+    }),
+    TextStyle,
+    Color,
+    Highlight,
+  ]), [placeholder])
+
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        bulletList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-        orderedList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-      }),
-      Placeholder.configure({
-        placeholder: placeholder || 'Add a more detailed description...',
-      }),
-      Link.configure({
-        openOnClick: false,
-      }),
-      Image,
-      Underline,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      TextStyle,
-      Color,
-      Highlight,
-    ],
+    extensions,
     content: content || '',
     editable: isEditing,
     onUpdate({ editor }) {
@@ -337,9 +348,16 @@ const RichTextEditor = ({ content, onSave, onCancel, placeholder, editable = fal
     }
   }, [isEditing, editor])
 
+  useEffect(() => {
+    if (typeof forceEditing === 'boolean') {
+      setIsEditing(forceEditing)
+    }
+  }, [forceEditing])
+
   const handleSave = () => {
     onSave(htmlContent)
     setIsEditing(false)
+    if (onEditingChange) onEditingChange(false)
   }
 
   const handleCancel = () => {
@@ -347,13 +365,18 @@ const RichTextEditor = ({ content, onSave, onCancel, placeholder, editable = fal
     setHtmlContent(content || '')
     setIsEditing(false)
     if (onCancel) onCancel()
+    if (onEditingChange) onEditingChange(false)
   }
 
   if (!isEditing) {
     return (
       <div className="space-y-2 group">
         <div 
-          onClick={() => setIsEditing(true)}
+          onClick={() => {
+            if (!editable || !allowClickToEdit) return
+            setIsEditing(true)
+            if (onEditingChange) onEditingChange(true)
+          }}
           className={`
             min-h-[150px] p-4 bg-gray-50/50 rounded-lg border border-transparent 
             hover:bg-gray-100/50 hover:border-gray-200 cursor-text transition-all
@@ -396,6 +419,8 @@ const RichTextEditor = ({ content, onSave, onCancel, placeholder, editable = fal
         .ProseMirror {
           outline: none;
           min-height: 150px;
+          white-space: pre-wrap;
+          word-break: break-word;
         }
         .ProseMirror p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);

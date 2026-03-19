@@ -1,18 +1,21 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
-import CardModal from '../components/CardModal'
 import ActivityFeed from '../components/ActivityFeed'
-import InviteModal from '../components/InviteModal'
 import Skeleton from '../components/common/Skeleton'
 import Navbar from '../components/Navbar'
-import CreateBoardModal from '../components/CreateBoardModal'
 import toast from 'react-hot-toast'
+
+const CardModal = lazy(() => import('../components/CardModal'))
+const InviteModal = lazy(() => import('../components/InviteModal'))
+const CreateBoardModal = lazy(() => import('../components/CreateBoardModal'))
+
+import { usePermissions } from '../hooks/usePermissions'
 
 const BoardPage = () => {
   const { boardId } = useParams()
@@ -23,6 +26,27 @@ const BoardPage = () => {
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selectedCard, setSelectedCard] = useState(null)
+  const navigate = useNavigate();
+
+  const deleteBoardMutation = useMutation({
+    mutationFn: async () => {
+      return boardAPI.deleteBoard(boardId);
+    },
+    onSuccess: () => {
+      toast.success('Board deleted');
+      navigate('/boards');
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete board');
+    }
+  });
+
+  const handleDeleteBoard = () => {
+    if (window.confirm('Delete this board? All columns, cards, and data will be permanently deleted. This cannot be undone.')) {
+      deleteBoardMutation.mutate();
+    }
+  };
+
   const [columnTitle, setColumnTitle] = useState('')
   const [cardTitle, setCardTitle] = useState('')
   const [filterKeyword, setFilterKeyword] = useState('')
@@ -47,20 +71,11 @@ const BoardPage = () => {
     }
   })
 
-  const { data: boards } = useQuery({
-    queryKey: ['boards'],
-    queryFn: async () => {
-      const response = await boardAPI.getBoards()
-      return response.data.data
-    },
-    staleTime: 5 * 60 * 1000
-  })
-
-  const board = boards?.find((item) => String(item.id) === String(boardId))
+  const { isOwner, isEditor, isViewer, canEdit, canInvite, isLoading: permissionsLoading } = usePermissions(boardId)
+  
+  const board = queryClient.getQueryData(['boards'])?.find((item) => String(item.id) === String(boardId))
   const boardTitle = board?.title || 'Board'
   const boardBg = getBoardGradient(board?.background || '#0079BF')
-  const isOwner = board?.role === 'OWNER'
-  const isViewer = board?.role === 'VIEWER'
   const memberCount = membersData?.members?.length || 1
   const memberLabel = memberCount === 1 ? 'member' : 'members'
 
@@ -307,7 +322,7 @@ const BoardPage = () => {
 
 
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return (
       <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="bg-white/80 backdrop-blur-md border-b border-white/20 px-6 py-4">
@@ -342,7 +357,9 @@ const BoardPage = () => {
 
   return (
     <div className="h-screen flex flex-col">
-      <Navbar onCreate={() => setShowCreateBoardModal(true)} />
+      <Navbar
+        onCreate={isOwner ? () => setShowCreateBoardModal(true) : null}
+      />
       <div
         className="flex-1 flex flex-col relative"
         style={{ backgroundImage: boardBg }}
@@ -362,7 +379,7 @@ const BoardPage = () => {
             </div>
           </div>
           <div className="flex space-x-3">
-            {isOwner && (
+            {canInvite && (
               <button
                 onClick={() => setShowInviteModal(true)}
                 className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
@@ -394,9 +411,14 @@ const BoardPage = () => {
               <FiActivity className="mr-2 h-4 w-4" />
               Activity
             </button>
-            {!isViewer && (
-              <button className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-lg border border-white/30 transition-all duration-200 hover:scale-105">
-                <FiMoreHorizontal className="h-4 w-4" />
+            {isOwner && (
+              <button
+                onClick={handleDeleteBoard}
+                disabled={deleteBoardMutation.isPending}
+                className="inline-flex items-center px-4 py-2 bg-red-600/90 hover:bg-red-700 backdrop-blur-sm text-white font-semibold rounded-lg border border-red-300/40 transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
+                title="Delete Board"
+              >
+                Delete Board
               </button>
             )}
           </div>
@@ -431,7 +453,7 @@ const BoardPage = () => {
                       <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full shadow-sm">
                         {visibleCardCount}
                       </span>
-                      {!isViewer && (
+                      {canEdit && (
                         <button className="p-1 hover:bg-gray-100 rounded">
                           <FiMoreHorizontal className="w-4 h-4 text-gray-500" />
                         </button>
@@ -457,7 +479,7 @@ const BoardPage = () => {
                             key={card.id}
                             draggableId={`card-${card.id}`}
                             index={index}
-                            isDragDisabled={isViewer}
+                            isDragDisabled={!canEdit}
                           >
                             {(provided, snapshot) => (
                               <div
@@ -538,7 +560,7 @@ const BoardPage = () => {
                   </Droppable>
 
                   {/* Add Card Form */}
-                  {!isViewer && showCreateCard === column.id ? (
+                  {canEdit && showCreateCard === column.id ? (
                     <div className="mt-3">
                       <form onSubmit={handleCreateCard}>
                         <textarea
@@ -570,7 +592,7 @@ const BoardPage = () => {
                         </div>
                       </form>
                     </div>
-                  ) : !isViewer ? (
+                  ) : canEdit ? (
                     <button
                       onClick={() => setShowCreateCard(column.id)}
                       className="w-full mt-1.5 p-2 text-gray-500 hover:text-gray-700 hover:bg-[#e2e8f0] rounded-lg text-sm font-medium flex items-center text-left transition-colors group"
@@ -585,7 +607,7 @@ const BoardPage = () => {
 
             {/* Add Column */}
             <div className="w-80 flex-shrink-0">
-              {!isViewer && (
+              {canEdit && (
                 showCreateColumn ? (
                   <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
                     <form onSubmit={handleCreateColumn}>
@@ -777,11 +799,17 @@ const BoardPage = () => {
 
         {/* Modals */}
         {selectedCard && (
-          <CardModal
-            cardId={selectedCard}
-            isViewer={isViewer}
-            onClose={() => setSelectedCard(null)}
-          />
+          <Suspense fallback={<div className="fixed inset-0 bg-black/40 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div></div>}>
+            <CardModal
+              cardId={selectedCard}
+              boardId={boardId}
+              isOwner={isOwner}
+              isEditor={isEditor}
+              canEdit={canEdit}
+              isViewer={isViewer}
+              onClose={() => setSelectedCard(null)}
+            />
+          </Suspense>
         )}
 
         {showActivityFeed && (
@@ -792,14 +820,18 @@ const BoardPage = () => {
         )}
 
         {showInviteModal && (
-          <InviteModal
-            boardId={boardId}
-            onClose={() => setShowInviteModal(false)}
-          />
+          <Suspense fallback={<div className="fixed inset-0 bg-black/40 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div></div>}>
+            <InviteModal
+              boardId={boardId}
+              onClose={() => setShowInviteModal(false)}
+            />
+          </Suspense>
         )}
 
         {showCreateBoardModal && (
-          <CreateBoardModal onClose={() => setShowCreateBoardModal(false)} />
+          <Suspense fallback={<div className="fixed inset-0 bg-black/40 flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div></div>}>
+            <CreateBoardModal onClose={() => setShowCreateBoardModal(false)} />
+          </Suspense>
         )}
       </div>
     </div>

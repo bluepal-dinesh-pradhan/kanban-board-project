@@ -1,17 +1,31 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { FiX, FiActivity, FiPlus, FiEdit3, FiMove, FiMessageSquare, FiUserPlus, FiArchive } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import Avatar from './common/Avatar'
 import { timeAgo } from '../utils/timeAgo'
 
 const ActivityFeed = ({ boardId, onClose }) => {
-  const { data: activities, isLoading } = useQuery({
-    queryKey: ['board', boardId, 'activity'],
-    queryFn: async () => {
-      const response = await boardAPI.getBoardActivity(boardId)
-      return response.data.data
-    }
+  const PAGE_SIZE = 20
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['board', boardId, 'activity', 'paged'],
+    queryFn: async ({ pageParam = 0 }) => {
+      const response = await boardAPI.getBoardActivity(boardId, { page: pageParam, size: PAGE_SIZE })
+      const payload = response.data.data
+      if (payload && Array.isArray(payload.content)) {
+        return payload
+      }
+      return { content: payload || [], hasNext: false }
+    },
+    getNextPageParam: (lastPage, pages) => (lastPage?.hasNext ? pages.length : undefined),
   })
+
+  const activities = data?.pages?.flatMap(page => page.content) || []
 
   const getActivityIcon = (action) => {
     const iconMap = {
@@ -132,6 +146,17 @@ const ActivityFeed = ({ boardId, onClose }) => {
                     </div>
                   )
                 })}
+                {hasNextPage && (
+                  <div className="p-4 flex justify-center">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="px-4 py-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-60"
+                    >
+                      {isFetchingNextPage ? 'Loading...' : 'Load more'}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

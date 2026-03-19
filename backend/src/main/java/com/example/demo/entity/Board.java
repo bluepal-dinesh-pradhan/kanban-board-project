@@ -7,7 +7,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "boards")
+@Table(
+    name = "boards",
+    indexes = {
+        @Index(name = "idx_boards_owner_id", columnList = "owner_id"),
+        @Index(name = "idx_boards_archived", columnList = "archived")
+    }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Board {
 
@@ -44,6 +50,10 @@ public class Board {
     @OrderBy("createdAt DESC")
     @Builder.Default
     private List<Activity> activities = new ArrayList<>();
+
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Invitation> invitations = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

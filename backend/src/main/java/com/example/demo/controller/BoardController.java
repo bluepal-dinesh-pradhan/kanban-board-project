@@ -11,20 +11,48 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/boards")
 @RequiredArgsConstructor
+@Tag(name = "Boards", description = "Board management endpoints.")
 public class BoardController {
 
     private final BoardService boardService;
     private final ActivityService activityService;
 
+    @Operation(
+            summary = "Get user boards",
+            description = "Returns all boards the authenticated user has access to."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Boards retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping
-    public ResponseEntity<ApiResponse<List<BoardDto>>> getBoards(@AuthenticationPrincipal UserPrincipal user) {
-        return ResponseEntity.ok(ApiResponse.ok(boardService.getUserBoards(user.getId())));
+    public ResponseEntity<ApiResponse<?>> getBoards(
+            @AuthenticationPrincipal UserPrincipal user,
+            @Parameter(description = "Page number (0-based)") @RequestParam(required = false) Integer page,
+            @Parameter(description = "Page size") @RequestParam(required = false) Integer size) {
+        if (page == null || size == null) {
+            return ResponseEntity.ok(ApiResponse.ok(boardService.getUserBoards(user.getId())));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(boardService.getUserBoards(user.getId(), page, size)));
     }
 
+    @Operation(
+            summary = "Create board",
+            description = "Creates a new board owned by the authenticated user."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Board created"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @PostMapping
     public ResponseEntity<ApiResponse<BoardDto>> createBoard(
             @Valid @RequestBody BoardRequest req,
@@ -33,6 +61,15 @@ public class BoardController {
                 .body(ApiResponse.ok("Board created", boardService.create(req, user.getId())));
     }
 
+    @Operation(
+            summary = "Update board",
+            description = "Updates board title or background."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Board updated"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid board"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<BoardDto>> updateBoard(
             @PathVariable Long id,
@@ -41,6 +78,15 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.ok("Board updated", boardService.updateBoard(id, req, user.getId())));
     }
 
+    @Operation(
+            summary = "Invite member",
+            description = "Invites a user to join a board or adds them if they already exist."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Invitation processed"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid board"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @PostMapping("/{id}/members")
     public ResponseEntity<ApiResponse<InviteResponse>> inviteMember(
             @PathVariable Long id,
@@ -50,6 +96,15 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.ok(response.getMessage(), response));
     }
 
+    @Operation(
+            summary = "Get board members",
+            description = "Returns current members and pending invitations for a board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Board members retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid board or access error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/{id}/members")
     public ResponseEntity<ApiResponse<BoardMembersDto>> getBoardMembers(
             @PathVariable Long id,
@@ -57,21 +112,58 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.ok(boardService.getBoardMembers(id, user.getId())));
     }
 
+    @Operation(
+            summary = "Get board columns",
+            description = "Returns columns and cards for a board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Columns retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid board or access error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/{id}/columns")
-    public ResponseEntity<ApiResponse<List<ColumnDto>>> getColumns(
+    public ResponseEntity<ApiResponse<?>> getColumns(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal user) {
-        return ResponseEntity.ok(ApiResponse.ok(boardService.getBoardColumns(id, user.getId())));
+            @AuthenticationPrincipal UserPrincipal user,
+            @Parameter(description = "Page number (0-based)") @RequestParam(required = false) Integer page,
+            @Parameter(description = "Page size") @RequestParam(required = false) Integer size) {
+        if (page == null || size == null) {
+            return ResponseEntity.ok(ApiResponse.ok(boardService.getBoardColumns(id, user.getId())));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(boardService.getBoardColumns(id, user.getId(), page, size)));
     }
 
+    @Operation(
+            summary = "Get board activity",
+            description = "Returns activity log entries for a board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Activity retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid board or access error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @GetMapping("/{id}/activity")
-    public ResponseEntity<ApiResponse<List<ActivityDto>>> getActivity(
+    public ResponseEntity<ApiResponse<?>> getActivity(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal user) {
+            @AuthenticationPrincipal UserPrincipal user,
+            @Parameter(description = "Page number (0-based)") @RequestParam(required = false) Integer page,
+            @Parameter(description = "Page size") @RequestParam(required = false) Integer size) {
         boardService.checkAccess(id, user.getId());
-        return ResponseEntity.ok(ApiResponse.ok(activityService.getByBoard(id)));
+        if (page == null || size == null) {
+            return ResponseEntity.ok(ApiResponse.ok(activityService.getByBoard(id)));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(activityService.getByBoard(id, page, size)));
     }
 
+    @Operation(
+            summary = "Cancel invitation",
+            description = "Cancels a pending invitation for a board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Invitation cancelled"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid invitation or access error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @DeleteMapping("/{id}/invitations/{invitationId}")
     public ResponseEntity<ApiResponse<String>> cancelInvitation(
             @PathVariable Long id,
@@ -81,6 +173,15 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.ok("Invitation cancelled"));
     }
 
+    @Operation(
+            summary = "Remove member",
+            description = "Removes a member from a board."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Member removed"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid member or access error"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @DeleteMapping("/{id}/members/{memberId}")
     public ResponseEntity<ApiResponse<String>> removeMember(
             @PathVariable Long id,
@@ -88,6 +189,24 @@ public class BoardController {
             @AuthenticationPrincipal UserPrincipal user) {
         boardService.removeMember(id, memberId, user.getId());
         return ResponseEntity.ok(ApiResponse.ok("Member removed"));
+    }
+
+    @Operation(
+            summary = "Delete board",
+            description = "Permanently deletes a board and all its related data. Only the board owner can perform this action."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Board deleted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Board not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<String>> deleteBoard(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal user) {
+        boardService.deleteBoard(id, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Board deleted successfully"));
     }
 }
 

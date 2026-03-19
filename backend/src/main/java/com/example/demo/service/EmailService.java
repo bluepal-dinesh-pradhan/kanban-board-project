@@ -29,8 +29,10 @@ public class EmailService {
     private String frontendUrl;
 
     public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists) {
+        log.info("Sending board invitation email to {}", toEmail);
+        log.debug("Email enabled={}, mailSenderPresent={}", mailEnabled, mailSender != null);
         if (!mailEnabled || mailSender == null) {
-            log.info("Email disabled. Invitation for {} saved to DB only.", toEmail);
+            log.warn("Email disabled. Invitation for {} saved to DB only.", toEmail);
             return false;
         }
 
@@ -59,8 +61,10 @@ public class EmailService {
     }
 
     public boolean sendDueDateReminder(String toEmail, String userName, String cardTitle, String boardTitle, LocalDate dueDate) {
+        log.info("Sending due date reminder email to {}", toEmail);
+        log.debug("Email enabled={}, mailSenderPresent={}", mailEnabled, mailSender != null);
         if (!mailEnabled || mailSender == null) {
-            log.info("Email disabled. Due date reminder for {} not sent.", toEmail);
+            log.warn("Email disabled. Due date reminder for {} not sent.", toEmail);
             return false;
         }
 
