@@ -41,6 +41,7 @@ const BoardListPage = () => {
       return { content: payload || [], hasNext: false }
     },
     getNextPageParam: (lastPage, pages) => (lastPage?.hasNext ? pages.length : undefined),
+    refetchInterval: 30000
   })
 
   const boards = data?.pages?.flatMap(page => page.content) || []

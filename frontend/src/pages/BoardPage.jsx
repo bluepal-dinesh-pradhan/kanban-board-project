@@ -30,6 +30,7 @@ const BoardPage = () => {
   const [renamedColumnTitle, setRenamedColumnTitle] = useState('')
   const [isRenamingBoard, setIsRenamingBoard] = useState(false)
   const [renamedBoardTitle, setRenamedBoardTitle] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const navigate = useNavigate();
 
   const queryClient = useQueryClient()
@@ -39,7 +40,8 @@ const BoardPage = () => {
     queryFn: async () => {
       const response = await boardAPI.getBoards()
       return response.data.data
-    }
+    },
+    refetchInterval: isDragging ? false : 15000
   })
 
   const { data: columns, isLoading } = useQuery({
@@ -47,7 +49,8 @@ const BoardPage = () => {
     queryFn: async () => {
       const response = await boardAPI.getBoardColumns(boardId)
       return response.data.data
-    }
+    },
+    refetchInterval: isDragging ? false : 15000
   })
 
   const { data: membersData } = useQuery({
@@ -55,7 +58,8 @@ const BoardPage = () => {
     queryFn: async () => {
       const response = await boardAPI.getBoardMembers(boardId)
       return response.data.data
-    }
+    },
+    refetchInterval: isDragging ? false : 15000
   })
 
   const { isOwner, isEditor, isViewer, canEdit, canInvite, isLoading: permissionsLoading } = usePermissions(boardId)
@@ -514,7 +518,13 @@ const BoardPage = () => {
             </button>
           </div>
         )}
-        <DragDropContext onDragEnd={handleDragEnd}>
+        <DragDropContext 
+          onDragStart={() => setIsDragging(true)}
+          onDragEnd={(result) => {
+            setIsDragging(false)
+            handleDragEnd(result)
+          }}
+        >
           <div className="flex space-x-6 min-w-max pb-6">
             {columns?.map((column) => {
               const visibleCardCount = column.cards.filter(matchesFilters).length
