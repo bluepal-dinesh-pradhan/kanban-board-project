@@ -24,6 +24,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final CardRepository cardRepository;
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional
     public void createDueDateReminder(Long userId, Long cardId, String message) {
@@ -40,8 +41,13 @@ public class NotificationService {
                 .type(Notification.NotificationType.DUE_DATE_REMINDER)
                 .build();
         
-        notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
         log.info("Due date notification created successfully for user {} card {}", userId, cardId);
+
+        // Send instant update via WebSocket
+        webSocketNotificationService.sendNotification(userId, NotificationDto.from(savedNotification));
+        long unreadCount = notificationRepository.countUnreadByUserId(userId);
+        webSocketNotificationService.sendUnreadCount(userId, unreadCount);
     }
 
     public List<NotificationDto> getUserNotifications(Long userId) {
@@ -89,6 +95,10 @@ public class NotificationService {
         notification.setRead(true);
         notificationRepository.save(notification);
         log.info("Notification {} marked as read for user {}", notificationId, userId);
+        
+        // Update unread count via WebSocket
+        long unreadCount = notificationRepository.countUnreadByUserId(userId);
+        webSocketNotificationService.sendUnreadCount(userId, unreadCount);
     }
 
     @Transactional
@@ -101,5 +111,8 @@ public class NotificationService {
         notificationRepository.saveAll(unreadNotifications);
         log.debug("Marked {} notifications as read for user {}", unreadNotifications.size(), userId);
         log.info("All notifications marked as read for user {}", userId);
+
+        // Push 0 unread count after marking all as read
+        webSocketNotificationService.sendUnreadCount(userId, 0);
     }
 }

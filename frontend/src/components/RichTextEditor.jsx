@@ -324,7 +324,7 @@ const RichTextEditor = ({
     TextStyle,
     Color,
     Highlight,
-  ]), [placeholder])
+  ]), []) // Empty dependency array to ensure stability
 
   const editor = useEditor({
     extensions,

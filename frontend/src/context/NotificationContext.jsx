@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { notificationAPI } from '../api/endpoints'
 import { useAuth } from './AuthContext'
+import { Client } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
 
 const NotificationContext = createContext()
 
@@ -19,7 +21,7 @@ export const NotificationProvider = ({ children }) => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const seenNotificationIds = useRef(new Set())
   const PAGE_SIZE = 20
 
@@ -174,6 +176,64 @@ export const NotificationProvider = ({ children }) => {
     })
   }, [notifications])
 
+  // WebSocket connection for real-time notifications
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS('/api/ws'),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        console.log('Notification WebSocket connected');
+        
+        // Listen for new notifications
+        client.subscribe(
+          `/topic/user/${user.id}/notifications`, 
+          (message) => {
+            const notification = JSON.parse(message.body);
+            setNotifications(prev => {
+              // Prevent duplicates
+              if (prev.some(n => n.id === notification.id)) return prev;
+              const newList = [notification, ...prev];
+              
+              // Trigger browser notification for the new item
+              if (!notification.isRead && notification.type === 'DUE_DATE_REMINDER') {
+                showBrowserNotification(
+                  notification.title || 'Due Date Reminder',
+                  notification.message,
+                  notification.cardId,
+                  notification.boardId
+                );
+              }
+              return newList;
+            });
+          }
+        );
+        
+        // Listen for unread count updates
+        client.subscribe(
+          `/topic/user/${user.id}/unread-count`, 
+          (message) => {
+            const count = JSON.parse(message.body);
+            setUnreadCount(count);
+          }
+        );
+      },
+      onDisconnect: () => {
+        console.log('Notification WebSocket disconnected');
+      },
+      onStompError: (frame) => {
+        console.error('STOMP error:', frame.headers['message']);
+      }
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, [isAuthenticated, user?.id])
+
   // Poll for new notifications every 2 minutes
   // Poll for new notifications
   useEffect(() => {
@@ -206,7 +266,7 @@ export const NotificationProvider = ({ children }) => {
           clearInterval(interval);
         }
       }
-    }, 30000);
+    }, 60000);
 
     return () => {
       clearTimeout(initialTimeout);
