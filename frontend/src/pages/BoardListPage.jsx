@@ -1,6 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiPlus, FiFolder, FiHome, FiGrid, FiChevronDown, FiUsers, FiSettings } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import Navbar from '../components/Navbar'
@@ -16,11 +16,17 @@ const CreateBoardModal = lazy(() => import('../components/CreateBoardModal'))
 const BoardListPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [workspaceOpen, setWorkspaceOpen] = useState(true)
-  const [activeNav, setActiveNav] = useState('boards')
   const [searchQuery, setSearchQuery] = useState('')
   const [showMembersModal, setShowMembersModal] = useState(false)
   const { user } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
+
+  const activeNav = useMemo(() => {
+    if (location.pathname === '/home' || location.pathname === '/') return 'home'
+    if (location.pathname.startsWith('/boards')) return 'boards'
+    return null
+  }, [location.pathname])
 
   const PAGE_SIZE = 20
   const {
@@ -126,11 +132,8 @@ const BoardListPage = () => {
         <aside className="hidden lg:flex w-64 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-48px)] px-4 py-5">
           <div className="w-full space-y-6">
             <div className="space-y-1.5">
-              <button
-                onClick={() => {
-                  setActiveNav('home')
-                  navigate('/boards')
-                }}
+              <Link
+                to="/home"
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
                   activeNav === 'home'
                     ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
@@ -139,12 +142,9 @@ const BoardListPage = () => {
               >
                 <FiHome className={`w-4 h-4 ${activeNav === 'home' ? 'text-blue-600' : 'text-slate-400'}`} />
                 Home
-              </button>
-              <button
-                onClick={() => {
-                  setActiveNav('boards')
-                  navigate('/boards')
-                }}
+              </Link>
+              <Link
+                to="/boards"
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
                   activeNav === 'boards'
                     ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
@@ -153,7 +153,7 @@ const BoardListPage = () => {
               >
                 <FiGrid className={`w-4 h-4 ${activeNav === 'boards' ? 'text-blue-600' : 'text-slate-400'}`} />
                 Boards
-              </button>
+              </Link>
             </div>
 
             <div>
