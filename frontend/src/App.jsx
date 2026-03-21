@@ -10,6 +10,7 @@ const BoardListPage = lazy(() => import('./pages/BoardListPage'))
 const BoardPage = lazy(() => import('./pages/BoardPage'))
 const InvitePage = lazy(() => import('./pages/InvitePage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 // Private Route component
 const PrivateRoute = ({ children }) => {
@@ -110,6 +111,14 @@ function App() {
           element={
             <PrivateRoute>
               <BoardPage />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <PrivateRoute>
+              <SettingsPage />
             </PrivateRoute>
           } 
         />

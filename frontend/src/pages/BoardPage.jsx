@@ -9,6 +9,7 @@ import { timeAgo } from '../utils/timeAgo'
 import ActivityFeed from '../components/ActivityFeed'
 import Skeleton from '../components/common/Skeleton'
 import Navbar from '../components/Navbar'
+import Sidebar from '../components/Sidebar'
 import toast from 'react-hot-toast'
 
 const CardModal = lazy(() => import('../components/CardModal'))
@@ -16,6 +17,11 @@ const InviteModal = lazy(() => import('../components/InviteModal'))
 const CreateBoardModal = lazy(() => import('../components/CreateBoardModal'))
 
 import { usePermissions } from '../hooks/usePermissions'
+
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').trim();
+};
 
 const BoardPage = () => {
   const { boardId } = useParams()
@@ -410,14 +416,16 @@ const BoardPage = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Navbar
         onCreate={isOwner ? () => setShowCreateBoardModal(true) : null}
       />
-      <div
-        className="flex-1 flex flex-col relative"
-        style={{ backgroundImage: boardBg }}
-      >
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <div
+          className="flex-1 flex flex-col relative overflow-hidden"
+          style={{ backgroundImage: boardBg }}
+        >
         <div className="absolute inset-0 bg-black/20" />
       
       {/* Toolbar */}
@@ -631,7 +639,7 @@ const BoardPage = () => {
                                   
                                   {card.description && (
                                     <p className="text-[12px] text-gray-500 mb-3 line-clamp-2 leading-relaxed">
-                                      {card.description}
+                                      {stripHtml(card.description)}
                                     </p>
                                   )}
 
