@@ -9,6 +9,7 @@ const LandingPage = lazy(() => import('./pages/LandingPage'))
 const BoardListPage = lazy(() => import('./pages/BoardListPage'))
 const BoardPage = lazy(() => import('./pages/BoardPage'))
 const InvitePage = lazy(() => import('./pages/InvitePage'))
+const HomePage = lazy(() => import('./pages/HomePage'))
 
 // Private Route component
 const PrivateRoute = ({ children }) => {
@@ -56,7 +57,7 @@ const PublicRoute = ({ children }) => {
     return <Navigate to={redirect} />
   }
 
-  return <Navigate to="/boards" />
+  return <Navigate to="/home" />
 }
 
 function App() {
@@ -88,6 +89,14 @@ function App() {
           } 
         />
         <Route path="/invite" element={<InvitePage />} />
+        <Route 
+          path="/home" 
+          element={
+            <PrivateRoute>
+              <HomePage />
+            </PrivateRoute>
+          } 
+        />
         <Route 
           path="/boards" 
           element={
