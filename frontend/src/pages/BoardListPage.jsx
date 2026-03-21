@@ -1,32 +1,22 @@
 import { useState, useMemo, lazy, Suspense } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FiPlus, FiFolder, FiHome, FiGrid, FiChevronDown, FiUsers, FiSettings } from 'react-icons/fi'
+import { FiPlus, FiFolder } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import Navbar from '../components/Navbar'
+import Sidebar from '../components/Sidebar'
 import BoardCard from '../components/BoardCard'
 import { SkeletonBoard } from '../components/common/Skeleton'
 import EmptyState from '../components/common/EmptyState'
 import { useAuth } from '../context/AuthContext'
 import Avatar from '../components/common/Avatar'
-import toast from 'react-hot-toast'
 
 const CreateBoardModal = lazy(() => import('../components/CreateBoardModal'))
 
 const BoardListPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [workspaceOpen, setWorkspaceOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [showMembersModal, setShowMembersModal] = useState(false)
   const { user } = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
-
-  const activeNav = useMemo(() => {
-    if (location.pathname === '/home' || location.pathname === '/') return 'home'
-    if (location.pathname.startsWith('/boards')) return 'boards'
-    return null
-  }, [location.pathname])
 
   const PAGE_SIZE = 20
   const {
@@ -129,79 +119,7 @@ const BoardListPage = () => {
         onCreate={() => setShowCreateModal(true)}
       />
       <div className="max-w-[1400px] mx-auto flex">
-        <aside className="hidden lg:flex w-64 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-48px)] px-4 py-5">
-          <div className="w-full space-y-6">
-            <div className="space-y-1.5">
-              <Link
-                to="/home"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
-                  activeNav === 'home'
-                    ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold'
-                }`}
-              >
-                <FiHome className={`w-4 h-4 ${activeNav === 'home' ? 'text-blue-600' : 'text-slate-400'}`} />
-                Home
-              </Link>
-              <Link
-                to="/boards"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-300 ${
-                  activeNav === 'boards'
-                    ? 'bg-blue-100/50 text-blue-700 font-bold shadow-sm ring-1 ring-blue-200/50'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold'
-                }`}
-              >
-                <FiGrid className={`w-4 h-4 ${activeNav === 'boards' ? 'text-blue-600' : 'text-slate-400'}`} />
-                Boards
-              </Link>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-3">
-                Workspaces
-                <button
-                  onClick={() => setWorkspaceOpen(!workspaceOpen)}
-                  className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-md transition-colors"
-                >
-                  <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${workspaceOpen ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-3 hover:shadow-sm transition-shadow duration-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center text-sm font-bold shadow-sm">
-                    K
-                  </div>
-                  <div className="text-sm font-semibold text-slate-800 tracking-tight">Kanban Workspace</div>
-                </div>
-                {workspaceOpen && (
-                  <div className="mt-3.5 space-y-0.5">
-                    <button
-                      onClick={() => navigate('/boards')}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
-                    >
-                      <FiGrid className="w-4 h-4 text-slate-400" />
-                      Boards
-                    </button>
-                    <button
-                      onClick={() => setShowMembersModal(true)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
-                    >
-                      <FiUsers className="w-4 h-4 text-slate-400" />
-                      Members
-                    </button>
-                    <button
-                      onClick={() => toast('Workspace settings coming soon!')}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-sm transition-all"
-                    >
-                      <FiSettings className="w-4 h-4 text-slate-400" />
-                      Settings
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
+        <Sidebar />
 
         <main className="flex-1 px-8 py-8 h-full">
           <div className="flex items-center gap-3 mb-6">

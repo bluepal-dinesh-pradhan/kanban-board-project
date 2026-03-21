@@ -55,7 +55,9 @@ export const cardAPI = {
 // User endpoints
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),
-  updateProfile: (profileData) => api.patch('/users/profile', profileData),
+  updateProfile: (data) => api.patch('/users/profile', data),
+  updateNotificationPreferences: (data) => api.patch('/users/notification-preferences', data),
+  changePassword: (data) => api.post('/users/change-password', data),
 }
 
 // Notification endpoints
