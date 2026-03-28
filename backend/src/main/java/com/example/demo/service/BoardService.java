@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ public class BoardService {
     private final CardRepository cardRepository;
     private final ActivityService activityService;
     private final EmailService emailService;
+    private final StarredBoardRepository starredBoardRepository;
 
     @Value("${app.invitation.expires-days:14}")
     private long invitationExpiresDays;
@@ -321,6 +323,38 @@ public class BoardService {
         BoardDto dto = BoardDto.from(board, member.getRole().name());
         log.info("Board {} updated successfully", boardId);
         return dto;
+    }
+    
+    @Transactional
+    public boolean toggleStar(Long boardId, Long userId) {
+        log.info("Toggling star for board {} by user {}", boardId, userId);
+        checkAccess(boardId, userId);
+
+        Optional<StarredBoard> existing = starredBoardRepository.findByUserIdAndBoardId(userId, boardId);
+
+        if (existing.isPresent()) {
+            starredBoardRepository.delete(existing.get());
+            log.info("Board {} unstarred by user {}", boardId, userId);
+            return false; // unstarred
+        } else {
+            User user = userRepository.findById(userId).orElseThrow();
+            Board board = boardRepository.findById(boardId).orElseThrow();
+            StarredBoard star = StarredBoard.builder()
+                    .user(user).board(board).build();
+            starredBoardRepository.save(star);
+            log.info("Board {} starred by user {}", boardId, userId);
+            return true; // starred
+        }
+    }
+
+    public boolean isStarred(Long boardId, Long userId) {
+        return starredBoardRepository.existsByUserIdAndBoardId(userId, boardId);
+    }
+
+    public List<Long> getStarredBoardIds(Long userId) {
+        return starredBoardRepository.findByUserIdOrderByStarredAtDesc(userId)
+                .stream().map(s -> s.getBoard().getId())
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Transactional

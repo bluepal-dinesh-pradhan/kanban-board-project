@@ -22,6 +22,12 @@ export const boardAPI = {
   removeMember: (boardId, memberId) => api.delete(`/boards/${boardId}/members/${memberId}`),
   cancelInvitation: (boardId, invitationId) => api.delete(`/boards/${boardId}/invitations/${invitationId}`),
   getBoardActivity: (id, paramsOrPage, size) => api.get(`/boards/${id}/activity`, { params: buildParams(paramsOrPage, size) }),
+  toggleStar: (id) => api.post(`/boards/${id}/star`),
+  getStarredBoards: () => api.get('/boards/starred'),
+  joinBoard: (boardId) => api.post(`/boards/${boardId}/presence/join`),
+  leaveBoard: (boardId) => api.post(`/boards/${boardId}/presence/leave`),
+  heartbeat: (boardId) => api.post(`/boards/${boardId}/presence/heartbeat`),
+  getPresence: (boardId) => api.get(`/boards/${boardId}/presence`),
   deleteBoard: (id) => api.delete(`/boards/${id}`),
 }
 

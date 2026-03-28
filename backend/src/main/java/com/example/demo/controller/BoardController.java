@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -205,6 +207,26 @@ public class BoardController {
             @AuthenticationPrincipal UserPrincipal user) {
         boardService.removeMember(id, memberId, user.getId());
         return ResponseEntity.ok(ApiResponse.ok("Member removed"));
+    }
+    
+    @Operation(summary = "Toggle star", description = "Stars or unstars a board for the current user.")
+    @PostMapping("/{boardId}/star")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> toggleStar(
+            @PathVariable Long boardId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        boolean starred = boardService.toggleStar(boardId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok(
+                starred ? "Board starred" : "Board unstarred",
+                Map.of("starred", starred)
+        ));
+    }
+
+    @Operation(summary = "Get starred board IDs", description = "Returns list of board IDs starred by the current user.")
+    @GetMapping("/starred")
+    public ResponseEntity<ApiResponse<List<Long>>> getStarredBoards(
+            @AuthenticationPrincipal UserPrincipal user) {
+        List<Long> ids = boardService.getStarredBoardIds(user.getId());
+        return ResponseEntity.ok(ApiResponse.ok(ids));
     }
 
     @Operation(

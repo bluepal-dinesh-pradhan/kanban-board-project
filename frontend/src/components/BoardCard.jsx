@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { FiUsers } from 'react-icons/fi'
+import { FiUsers, FiStar } from 'react-icons/fi'
 
 
-const BoardCard = ({ board }) => {
+const BoardCard = ({ board, isStarred }) => {
   const backgroundGradients = {
     '#0079BF': 'from-blue-600 to-blue-800',
     '#D29034': 'from-orange-500 to-orange-700', 
@@ -31,6 +31,9 @@ const BoardCard = ({ board }) => {
           <h3 className="font-bold text-[15px] leading-snug line-clamp-2 text-white text-shadow max-w-[85%]">
             {board.title}
           </h3>
+          {isStarred && (
+            <FiStar className="w-4 h-4 text-yellow-400 fill-yellow-400 shrink-0" />
+          )}
         </div>
         
         <div className="relative z-10 flex items-center gap-1.5 text-white/80 text-[11px] font-medium mt-auto group-hover:text-white transition-colors duration-200">

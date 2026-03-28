@@ -1,6 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
-import { FiPlus, FiFolder } from 'react-icons/fi'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { FiPlus, FiFolder, FiStar } from 'react-icons/fi'
 import { boardAPI } from '../api/endpoints'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
@@ -42,12 +42,31 @@ const BoardListPage = () => {
 
   const boards = data?.pages?.flatMap(page => page.content) || []
 
+  const { data: starredIds } = useQuery({
+    queryKey: ['starredBoards'],
+    queryFn: async () => {
+      const response = await boardAPI.getStarredBoards()
+      return response.data.data
+    }
+  })
+
+  const sortedBoards = useMemo(() => {
+    if (!boards || !starredIds) return boards || []
+    return [...boards].sort((a, b) => {
+      const aStarred = starredIds.includes(a.id)
+      const bStarred = starredIds.includes(b.id)
+      if (aStarred && !bStarred) return -1
+      if (!aStarred && bStarred) return 1
+      return 0
+    })
+  }, [boards, starredIds])
+
   const filteredBoards = useMemo(() => {
-    if (!boards) return []
+    if (!sortedBoards) return []
     const query = searchQuery.trim().toLowerCase()
-    if (!query) return boards
-    return boards.filter((board) => board.title.toLowerCase().includes(query))
-  }, [boards, searchQuery])
+    if (!query) return sortedBoards
+    return sortedBoards.filter((board) => board.title.toLowerCase().includes(query))
+  }, [sortedBoards, searchQuery])
 
   const content = (() => {
     if (isLoading) {
@@ -98,7 +117,11 @@ const BoardListPage = () => {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
         {filteredBoards?.map((board) => (
-          <BoardCard key={board.id} board={board} />
+          <BoardCard 
+            key={board.id} 
+            board={board} 
+            isStarred={starredIds?.includes(board.id)} 
+          />
         ))}
         <button
           onClick={() => setShowCreateModal(true)}
