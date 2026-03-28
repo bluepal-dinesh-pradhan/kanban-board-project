@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
+import { ThemeProvider } from './context/ThemeContext'
 import App from './App.jsx'
 import './index.css'
 
@@ -13,7 +14,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     },
     mutations: {
       retry: 0,
@@ -23,56 +24,43 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <NotificationProvider>
-            <App />
-          </NotificationProvider>
-          <Toaster 
-            position="bottom-left"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#fff',
-                color: '#374151',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                fontSize: '14px',
-                fontWeight: '500',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
+            <Toaster 
+              position="bottom-left"
+              toastOptions={{
+                duration: 4000,
                 style: {
-                  borderLeft: '4px solid #10b981',
+                  background: 'var(--toast-bg, #fff)',
+                  color: 'var(--toast-color, #374151)',
+                  border: '1px solid var(--toast-border, #e5e7eb)',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  fontSize: '14px',
+                  fontWeight: '500',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                success: {
+                  iconTheme: { primary: '#10b981', secondary: '#fff' },
+                  style: { borderLeft: '4px solid #10b981' },
                 },
-                style: {
-                  borderLeft: '4px solid #ef4444',
+                error: {
+                  iconTheme: { primary: '#ef4444', secondary: '#fff' },
+                  style: { borderLeft: '4px solid #ef4444' },
                 },
-              },
-              loading: {
-                iconTheme: {
-                  primary: '#3b82f6',
-                  secondary: '#fff',
+                loading: {
+                  iconTheme: { primary: '#3b82f6', secondary: '#fff' },
+                  style: { borderLeft: '4px solid #3b82f6' },
                 },
-                style: {
-                  borderLeft: '4px solid #3b82f6',
-                },
-              },
-            }}
-          />
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+              }}
+            />
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 )

@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
 import Avatar from './common/Avatar'
-import { FiChevronDown, FiLogOut, FiPlus, FiBell, FiSearch, FiCheck, FiCheckCircle, FiCalendar } from 'react-icons/fi'
+import { FiChevronDown, FiLogOut, FiPlus, FiBell, FiSearch, FiCheck, FiCheckCircle, FiCalendar, FiSun, FiMoon } from 'react-icons/fi'
+import { useTheme } from '../context/ThemeContext'
 import { timeAgo } from '../utils/timeAgo'
 
 const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
   const { user, logout } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllAsRead, fetchNotifications, loadMoreNotifications, hasMore, loadingMore } = useNotifications()
+  const { isDark, toggleTheme } = useTheme()
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [internalSearch, setInternalSearch] = useState('')
@@ -99,6 +101,17 @@ const Navbar = ({ searchValue, onSearchChange, onCreate }) => {
                 Create
               </button>
             )}
+            <button
+              onClick={toggleTheme}
+              className="p-2 mr-1 rounded-lg hover:bg-white/10 transition-colors"
+              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDark ? (
+                <FiSun className="w-5 h-5 text-yellow-400" />
+              ) : (
+                <FiMoon className="w-5 h-5 text-white/80" />
+              )}
+            </button>
             <div className="relative" ref={notificationRef}>
               <button
                 onClick={handleNotificationToggle}

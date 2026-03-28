@@ -201,3 +201,191 @@ body {
     box-shadow: 0 0 0 3px var(--primary-ring);
   }
 }
+
+/* ===== DARK MODE GLOBAL STYLES ===== */
+
+/* Base dark background */
+.dark body {
+  background-color: #1a1b1e;
+  color: #e4e4e7;
+}
+
+/* Toast variables for dark mode */
+.dark {
+  --toast-bg: #27272a;
+  --toast-color: #e4e4e7;
+  --toast-border: #3f3f46;
+}
+
+/* Navbar */
+.dark nav,
+.dark .navbar {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+}
+
+/* Sidebar */
+.dark aside,
+.dark .sidebar {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+}
+.dark aside a,
+.dark .sidebar a {
+  color: #a1a1aa;
+}
+.dark aside a:hover,
+.dark .sidebar a:hover {
+  background-color: #27272a;
+  color: #e4e4e7;
+}
+.dark aside .active,
+.dark .sidebar .active {
+  background-color: #27272a;
+  color: #fff;
+}
+
+/* Board columns */
+.dark .bg-\[\#f4f5f7\] {
+  background-color: #27272a !important;
+}
+
+/* Cards */
+.dark .bg-white {
+  background-color: #1e1e21 !important;
+}
+.dark .group.bg-white {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+}
+.dark .group.bg-white:hover {
+  border-color: #52525b !important;
+}
+
+/* Card text */
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: #e4e4e7 !important;
+}
+.dark .text-gray-700 {
+  color: #a1a1aa !important;
+}
+.dark .text-gray-600 {
+  color: #a1a1aa !important;
+}
+.dark .text-gray-500 {
+  color: #71717a !important;
+}
+.dark .text-gray-400 {
+  color: #52525b !important;
+}
+
+/* Card modal */
+.dark .bg-gray-50,
+.dark .bg-gray-50\/50 {
+  background-color: #27272a !important;
+}
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: #3f3f46 !important;
+}
+.dark .border-gray-300 {
+  border-color: #52525b !important;
+}
+
+/* Inputs */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #e4e4e7 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #71717a !important;
+}
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6 !important;
+}
+
+/* Buttons */
+.dark .hover\:bg-gray-100:hover {
+  background-color: #3f3f46 !important;
+}
+.dark .bg-gray-100 {
+  background-color: #3f3f46 !important;
+}
+
+/* Modals */
+.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Slide panels (filter, activity, archived) */
+.dark .max-w-sm.bg-white {
+  background-color: #1e1e21 !important;
+}
+
+/* Skeleton loading */
+.dark .animate-pulse {
+  background-color: #27272a !important;
+}
+
+/* Board list page cards */
+.dark .rounded-xl.border {
+  border-color: #3f3f46 !important;
+}
+
+/* Column header text */
+.dark .text-\[\#64748b\] {
+  color: #a1a1aa !important;
+}
+
+/* Card count badge */
+.dark .bg-blue-100 {
+  background-color: #1e3a5f !important;
+}
+.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+/* Column menu dropdown */
+.dark .bg-white.rounded-lg.shadow-xl {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+}
+.dark .text-slate-700 {
+  color: #a1a1aa !important;
+}
+.dark .hover\:bg-slate-50:hover {
+  background-color: #3f3f46 !important;
+}
+
+/* Scrollbar dark */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #27272a;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #71717a;
+}
+
+/* Home page stats cards */
+.dark .bg-gradient-to-br.from-blue-50 {
+  background: #1a1b1e !important;
+}
+
+/* Settings page */
+.dark .bg-gray-50.rounded-xl.p-5 {
+  background-color: #27272a !important;
+}
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser, FiCheckSquare } from 'react-icons/fi'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser, FiCheckSquare, FiCopy } from 'react-icons/fi'
 import { cardAPI, boardAPI } from '../api/endpoints'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
@@ -135,6 +135,21 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
     onSuccess: () => {
       queryClient.invalidateQueries(['card', cardId, 'checklists'])
       queryClient.invalidateQueries(['board', boardId, 'columns'])
+    }
+  })
+
+  const duplicateCardMutation = useMutation({
+    mutationFn: async () => {
+      const response = await cardAPI.duplicateCard(cardId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('Card duplicated!', { id: 'card-duplicated' })
+      onClose()
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to duplicate card')
     }
   })
 
@@ -799,6 +814,14 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
               {canEdit && !isViewer && (
                 <div className="space-y-4">
                   <div className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Actions</div>
+                  <button
+                    onClick={() => duplicateCardMutation.mutate()}
+                    disabled={duplicateCardMutation.isPending}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-sm font-semibold border border-gray-200 hover:border-blue-200 transition-all shadow-sm"
+                  >
+                    <FiCopy className="w-4 h-4" />
+                    Duplicate Card
+                  </button>
                   <button
                     onClick={() => archiveCardMutation.mutate()}
                     className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-xl text-sm font-semibold border border-gray-200 hover:border-red-200 transition-all shadow-sm"
