@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3 } from 'react-icons/fi'
-import { cardAPI } from '../api/endpoints'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser } from 'react-icons/fi'
+import { cardAPI, boardAPI } from '../api/endpoints'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import RichTextEditor from './RichTextEditor'
@@ -13,6 +13,14 @@ const LABEL_COLORS = [
   '#22c55e', // green
   '#3b82f6', // blue
   '#8b5cf6', // purple
+]
+
+const PRIORITY_OPTIONS = [
+  { value: 'URGENT', label: 'Urgent', color: '#dc2626', dot: 'bg-red-500' },
+  { value: 'HIGH', label: 'High', color: '#f97316', dot: 'bg-orange-500' },
+  { value: 'MEDIUM', label: 'Medium', color: '#eab308', dot: 'bg-yellow-500' },
+  { value: 'LOW', label: 'Low', color: '#3b82f6', dot: 'bg-blue-500' },
+  { value: 'NONE', label: 'None', color: '#9ca3af', dot: 'bg-gray-400' },
 ]
 
 const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false, isViewer = false, canEdit: canEditProp }) => {
@@ -62,6 +70,29 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
     }
   })
 
+  const { data: membersData } = useQuery({
+    queryKey: ['boardMembers', boardId],
+    queryFn: async () => {
+      const response = await boardAPI.getBoardMembers(boardId)
+      return response.data.data
+    }
+  })
+
+  const assignCardMutation = useMutation({
+    mutationFn: async (assigneeId) => {
+      const response = await cardAPI.assignCard(cardId, assigneeId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('Card assigned!', { id: 'card-assigned' })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to assign card')
+    }
+  })
+
   useEffect(() => {
     if (card) {
       const reminderType =
@@ -73,7 +104,8 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
         description: card.description || '',
         dueDate: card.dueDate || '',
         labels: card.labels || [],
-        reminderType
+        reminderType,
+        priority: card.priority || 'NONE'
       })
       setDueDateDraft(toDateTimeLocal(card.dueDate || ''))
       setIsDueDateEditing(false)
@@ -475,6 +507,90 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
 
             <div className="space-y-6">
               <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 space-y-6">
+                {/* Priority Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-600 mb-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                    <span className="text-xs font-bold uppercase tracking-wider">Priority</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          if (!canEdit) return
+                          setFormData(prev => ({ ...prev, priority: opt.value }))
+                          updateCardMutation.mutate({ ...formData, priority: opt.value })
+                        }}
+                        disabled={!canEdit}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                          formData.priority === opt.value
+                            ? 'ring-2 ring-offset-1 shadow-sm'
+                            : 'opacity-60 hover:opacity-100'
+                        } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                        style={{
+                          backgroundColor: formData.priority === opt.value ? opt.color + '18' : 'transparent',
+                          borderColor: formData.priority === opt.value ? opt.color : '#e5e7eb',
+                          color: opt.color,
+                          ringColor: opt.color,
+                        }}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${opt.dot}`}></span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assignee Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-600 mb-2">
+                    <FiUser className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Assignee</span>
+                    {canEdit && card?.assigneeId && (
+                      <button
+                        type="button"
+                        onClick={() => assignCardMutation.mutate(null)}
+                        className="ml-auto text-xs font-semibold text-red-500 hover:text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {card?.assigneeId ? (
+                    <div className="flex items-center gap-2.5 p-2.5 bg-white rounded-lg border border-gray-200">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-xs font-bold uppercase">
+                        {card.assigneeName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">{card.assigneeName}</div>
+                        <div className="text-xs text-gray-500">{card.assigneeEmail}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400 italic">No one assigned</div>
+                  )}
+                  {canEdit && (
+                    <select
+                      value={card?.assigneeId || ''}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        assignCardMutation.mutate(val ? Number(val) : null)
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium bg-white mt-1"
+                    >
+                      <option value="">Select member...</option>
+                      {membersData?.members?.map((member) => (
+                        <option key={member.user.id} value={member.user.id}>
+                          {member.user.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-gray-600 mb-2">
                     <FiCalendar className="w-4 h-4" />

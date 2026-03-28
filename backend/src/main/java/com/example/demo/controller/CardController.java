@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -53,6 +54,39 @@ public class CardController {
             @AuthenticationPrincipal UserPrincipal user) {
         return ResponseEntity.ok(ApiResponse.ok("Card updated", cardService.update(id, req, user.getId())));
     }
+
+    // NEW: Quick priority update endpoint
+    @Operation(summary = "Update card priority", description = "Updates only the priority of a card.")
+    @PatchMapping("/{cardId}/priority")
+    public ResponseEntity<ApiResponse<CardDto>> updatePriority(
+            @PathVariable Long cardId,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal user) {
+        String priority = body.get("priority");
+        if (priority == null) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Priority is required", null));
+        }
+        CardDto dto = cardService.updatePriority(cardId, priority, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Priority updated", dto));
+    }
+    
+ // ============================================================
+    // ADD this endpoint to your existing CardController.java
+    // Place it after the updatePriority() endpoint
+    // ============================================================
+
+    @Operation(summary = "Assign card", description = "Assigns a board member to a card, or unassigns if assigneeId is null.")
+    @PatchMapping("/{cardId}/assign")
+    public ResponseEntity<ApiResponse<CardDto>> assignCard(
+            @PathVariable Long cardId,
+            @RequestBody Map<String, Long> body,
+            @AuthenticationPrincipal UserPrincipal user) {
+        Long assigneeId = body.get("assigneeId"); // null = unassign
+        CardDto dto = cardService.assignCard(cardId, assigneeId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Card assigned", dto));
+    }
+    
 
     @Operation(summary = "Move card", description = "Moves a card to a different position or column.")
     @PostMapping("/{id}/move")
@@ -114,13 +148,8 @@ public class CardController {
 
     @Operation(
             summary = "Delete card",
-            description = "Permanently deletes a card and its related data (comments, labels, reminders). Requires board editor permissions."
+            description = "Permanently deletes a card and its related data."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Card deleted"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid card id or access error"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
     @DeleteMapping("/{cardId}")
     public ResponseEntity<ApiResponse<String>> deleteCard(
             @PathVariable Long cardId,
