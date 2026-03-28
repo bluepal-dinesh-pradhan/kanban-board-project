@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.UUID;
 
@@ -33,6 +34,7 @@ public class BoardService {
     private final CardRepository cardRepository;
     private final ActivityService activityService;
     private final EmailService emailService;
+    private final StarredBoardRepository starredBoardRepository;
 
     @Value("${app.invitation.expires-days:14}")
     private long invitationExpiresDays;
@@ -49,12 +51,10 @@ public class BoardService {
         board = boardRepository.save(board);
         log.debug("Board persisted with id {}", board.getId());
 
-        // Add owner as member
         BoardMember member = BoardMember.builder()
                 .board(board).user(user).role(BoardMember.Role.OWNER).build();
         boardMemberRepository.save(member);
 
-        // Create default columns
         String[] defaults = {"To Do", "In Progress", "Done"};
         for (int i = 0; i < defaults.length; i++) {
             BoardColumn col = BoardColumn.builder()
@@ -90,13 +90,9 @@ public class BoardService {
                     return BoardDto.from(b, m.getRole().name());
                 }).collect(Collectors.toList());
         PageResponse<BoardDto> response = new PageResponse<>(
-                content,
-                boards.getNumber(),
-                boards.getSize(),
-                boards.getTotalElements(),
-                boards.getTotalPages(),
-                boards.hasNext(),
-                boards.hasPrevious()
+                content, boards.getNumber(), boards.getSize(),
+                boards.getTotalElements(), boards.getTotalPages(),
+                boards.hasNext(), boards.hasPrevious()
         );
         log.debug("Fetching {} boards for user {} (page {}, size {})", content.size(), userId, page, size);
         log.info("Boards fetched successfully for user {} with page {} and size {}", userId, page, size);
@@ -118,94 +114,66 @@ public class BoardService {
     }
 
     @Transactional
-        public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
-            log.info("Inviting member {} to board {} by user {}", req.getEmail(), boardId, inviterId);
-            Board board = boardRepository.findById(boardId).orElseThrow();
-            checkPermission(boardId, inviterId, BoardMember.Role.OWNER);
-            User inviter = userRepository.findById(inviterId).orElseThrow();
+    public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
+        log.info("Inviting member {} to board {} by user {}", req.getEmail(), boardId, inviterId);
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        checkPermission(boardId, inviterId, BoardMember.Role.OWNER);
+        User inviter = userRepository.findById(inviterId).orElseThrow();
 
-            // Check if already a member
-            if (boardMemberRepository.existsByBoardIdAndUserId(boardId, 
-                    userRepository.findByEmail(req.getEmail()).map(User::getId).orElse(-1L))) {
-                log.warn("User {} already a member of board {}", req.getEmail(), boardId);
-                throw new RuntimeException("User is already a member");
-            }
+        if (boardMemberRepository.existsByBoardIdAndUserId(boardId,
+                userRepository.findByEmail(req.getEmail()).map(User::getId).orElse(-1L))) {
+            log.warn("User {} already a member of board {}", req.getEmail(), boardId);
+            throw new RuntimeException("User is already a member");
+        }
 
-            // Check if invitation already exists
-            if (invitationRepository.existsByBoardIdAndEmail(boardId, req.getEmail())) {
-                log.warn("User {} already invited to board {}", req.getEmail(), boardId);
-                throw new RuntimeException("User is already invited");
-            }
+        if (invitationRepository.existsByBoardIdAndEmail(boardId, req.getEmail())) {
+            log.warn("User {} already invited to board {}", req.getEmail(), boardId);
+            throw new RuntimeException("User is already invited");
+        }
 
-            // Try to find user by email
-            var userOpt = userRepository.findByEmail(req.getEmail());
+        var userOpt = userRepository.findByEmail(req.getEmail());
 
-            if (userOpt.isPresent()) {
-                // User exists - add directly as member
-                User invitee = userOpt.get();
-                BoardMember member = BoardMember.builder()
-                        .board(board).user(invitee).role(req.getRole()).build();
-                boardMemberRepository.save(member);
+        if (userOpt.isPresent()) {
+            User invitee = userOpt.get();
+            BoardMember member = BoardMember.builder()
+                    .board(board).user(invitee).role(req.getRole()).build();
+            boardMemberRepository.save(member);
 
-                // Send email notification
-                boolean emailSent = emailService.sendBoardInvitation(
-                    req.getEmail(), 
-                    inviter.getFullName(), 
-                    board.getTitle(), 
-                    req.getRole().name(), 
-                    true
-                );
+            boolean emailSent = emailService.sendBoardInvitation(
+                    req.getEmail(), inviter.getFullName(), board.getTitle(),
+                    req.getRole().name(), true);
 
-                activityService.log(board, inviter, "INVITED_MEMBER", "USER", invitee.getId());
+            activityService.log(board, inviter, "INVITED_MEMBER", "USER", invitee.getId());
 
-                InviteResponse response = InviteResponse.builder()
+            InviteResponse response = InviteResponse.builder()
                     .status("ADDED")
                     .message(invitee.getFullName() + " has been added to the board!")
-                    .emailSent(emailSent)
-                    .build();
-                log.info("Member {} added to board {} successfully", invitee.getId(), boardId);
-                return response;
-            } else {
-                // User doesn't exist - create pending invitation
-                Invitation invitation = Invitation.builder()
-                        .board(board)
-                        .email(req.getEmail())
-                        .role(req.getRole())
-                        .invitedBy(inviter)
-                        .status(Invitation.InvitationStatus.PENDING)
-                        .build();
-                invitationRepository.save(invitation);
+                    .emailSent(emailSent).build();
+            log.info("Member {} added to board {} successfully", invitee.getId(), boardId);
+            return response;
+        } else {
+            Invitation invitation = Invitation.builder()
+                    .board(board).email(req.getEmail()).role(req.getRole())
+                    .invitedBy(inviter).status(Invitation.InvitationStatus.PENDING).build();
+            invitationRepository.save(invitation);
 
-                // Send email notification
-                boolean emailSent = emailService.sendBoardInvitation(
-                    req.getEmail(), 
-                    inviter.getFullName(), 
-                    board.getTitle(), 
-                    req.getRole().name(), 
-                    false
-                );
+            boolean emailSent = emailService.sendBoardInvitation(
+                    req.getEmail(), inviter.getFullName(), board.getTitle(),
+                    req.getRole().name(), false);
 
-                activityService.log(board, inviter, "SENT_INVITATION", "INVITATION", invitation.getId());
+            activityService.log(board, inviter, "SENT_INVITATION", "INVITATION", invitation.getId());
 
-                if (emailSent) {
-                    InviteResponse response = InviteResponse.builder()
-                        .status("INVITED")
+            if (emailSent) {
+                return InviteResponse.builder().status("INVITED")
                         .message("Invitation email sent to " + req.getEmail())
-                        .emailSent(true)
-                        .build();
-                    log.info("Invitation email sent to {} for board {}", req.getEmail(), boardId);
-                    return response;
-                } else {
-                    InviteResponse response = InviteResponse.builder()
-                        .status("INVITED")
+                        .emailSent(true).build();
+            } else {
+                return InviteResponse.builder().status("INVITED")
                         .message("Invitation saved. Share the registration link with them manually.")
-                        .emailSent(false)
-                        .build();
-                    log.warn("Invitation saved without email for {} on board {}", req.getEmail(), boardId);
-                    return response;
-                }
+                        .emailSent(false).build();
             }
         }
+    }
 
     @Transactional(readOnly = true)
     public List<ColumnDto> getBoardColumns(Long boardId, Long userId) {
@@ -223,9 +191,7 @@ public class BoardService {
         log.info("Fetching columns for board {} with page {} and size {}", boardId, page, size);
         checkAccess(boardId, userId);
         Page<BoardColumn> columns = boardColumnRepository.findByBoardIdAndArchivedFalse(
-                boardId,
-                PageRequest.of(page, size, Sort.by("position").ascending())
-        );
+                boardId, PageRequest.of(page, size, Sort.by("position").ascending()));
         PageResponse<ColumnDto> response = PageResponse.from(columns.map(ColumnDto::from));
         log.debug("Fetched {} columns for board {} (page {}, size {})", response.getContent().size(), boardId, page, size);
         log.info("Columns fetched successfully for board {} with page {} and size {}", boardId, page, size);
@@ -236,16 +202,14 @@ public class BoardService {
         log.info("Fetching board members for board {} and user {}", boardId, userId);
         checkAccess(boardId, userId);
         Board board = boardRepository.findById(boardId).orElseThrow();
-        
+
         List<BoardMemberDto> members = board.getMembers().stream()
-                .map(BoardMemberDto::from)
-                .collect(Collectors.toList());
-                
+                .map(BoardMemberDto::from).collect(Collectors.toList());
+
         List<InvitationDto> pendingInvitations = invitationRepository.findByBoardId(boardId)
                 .stream()
                 .filter(inv -> inv.getStatus() == Invitation.InvitationStatus.PENDING)
-                .map(InvitationDto::from)
-                .collect(Collectors.toList());
+                .map(InvitationDto::from).collect(Collectors.toList());
 
         BoardMembersDto dto = new BoardMembersDto(members, pendingInvitations);
         log.debug("Fetched {} members and {} pending invitations for board {}", members.size(), pendingInvitations.size(), boardId);
@@ -261,11 +225,9 @@ public class BoardService {
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
         if (member.getRole() == BoardMember.Role.OWNER) {
-            log.warn("User {} attempted to remove board owner {} from board {}", userId, memberId, boardId);
             throw new RuntimeException("Board owner cannot be removed");
         }
         if (member.getUser().getId().equals(userId)) {
-            log.warn("User {} attempted to remove themselves from board {}", userId, boardId);
             throw new RuntimeException("You cannot remove yourself");
         }
 
@@ -288,7 +250,6 @@ public class BoardService {
             throw new RuntimeException("Board not found");
         }
 
-        // Delete related data in FK-safe order
         notificationRepository.deleteByBoardId(boardId);
         cardReminderRepository.deleteByBoardId(boardId);
         commentRepository.deleteByBoardId(boardId);
@@ -308,14 +269,10 @@ public class BoardService {
         log.info("Updating board {} by user {}", boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
         Board board = boardRepository.findById(boardId).orElseThrow();
-        
-        if (req.getTitle() != null) {
-            board.setTitle(req.getTitle());
-        }
-        if (req.getBackground() != null) {
-            board.setBackground(req.getBackground());
-        }
-        
+
+        if (req.getTitle() != null) board.setTitle(req.getTitle());
+        if (req.getBackground() != null) board.setBackground(req.getBackground());
+
         board = boardRepository.save(board);
         BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId).orElseThrow();
         BoardDto dto = BoardDto.from(board, member.getRole().name());
@@ -324,17 +281,95 @@ public class BoardService {
     }
 
     @Transactional
+    public boolean toggleStar(Long boardId, Long userId) {
+        log.info("Toggling star for board {} by user {}", boardId, userId);
+        checkAccess(boardId, userId);
+
+        Optional<StarredBoard> existing = starredBoardRepository.findByUserIdAndBoardId(userId, boardId);
+
+        if (existing.isPresent()) {
+            starredBoardRepository.delete(existing.get());
+            log.info("Board {} unstarred by user {}", boardId, userId);
+            return false;
+        } else {
+            User user = userRepository.findById(userId).orElseThrow();
+            Board board = boardRepository.findById(boardId).orElseThrow();
+            StarredBoard star = StarredBoard.builder().user(user).board(board).build();
+            starredBoardRepository.save(star);
+            log.info("Board {} starred by user {}", boardId, userId);
+            return true;
+        }
+    }
+
+    public boolean isStarred(Long boardId, Long userId) {
+        return starredBoardRepository.existsByUserIdAndBoardId(userId, boardId);
+    }
+
+    public List<Long> getStarredBoardIds(Long userId) {
+        return starredBoardRepository.findByUserIdOrderByStarredAtDesc(userId)
+                .stream().map(s -> s.getBoard().getId()).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public BoardDto createFromTemplate(String title, String background, String templateType, Long userId) {
+        log.info("Creating board '{}' from template '{}' for user {}", title, templateType, userId);
+
+        List<String> columns;
+        switch (templateType.toUpperCase()) {
+            case "SCRUM":
+                columns = List.of("Backlog", "Sprint", "In Progress", "Review", "Done");
+                break;
+            case "BUG_TRACKER":
+                columns = List.of("New", "Triaging", "In Progress", "Testing", "Resolved", "Closed");
+                break;
+            case "MARKETING":
+                columns = List.of("Ideas", "Planning", "In Progress", "Review", "Published");
+                break;
+            case "PERSONAL":
+                columns = List.of("To Do", "Doing", "Done");
+                break;
+            case "DESIGN":
+                columns = List.of("Research", "Wireframes", "Design", "Feedback", "Final");
+                break;
+            default:
+                columns = List.of("To Do", "In Progress", "Done");
+                break;
+        }
+
+        User user = userRepository.findById(userId).orElseThrow();
+        Board board = Board.builder()
+                .title(title)
+                .background(background != null ? background : "#0079BF")
+                .owner(user).build();
+        board = boardRepository.save(board);
+
+        BoardMember member = BoardMember.builder()
+                .board(board).user(user).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(member);
+
+        for (int i = 0; i < columns.size(); i++) {
+            BoardColumn col = BoardColumn.builder()
+                    .board(board).title(columns.get(i)).position(i).build();
+            boardColumnRepository.save(col);
+        }
+
+        activityService.log(board, user, "CREATED_BOARD_FROM_TEMPLATE", "BOARD", board.getId());
+
+        log.info("Board '{}' created from template '{}' with {} columns", title, templateType, columns.size());
+        return BoardDto.from(board, "OWNER");
+    }
+
+    @Transactional
     public void cancelInvitation(Long boardId, Long invitationId, Long userId) {
         log.info("Cancelling invitation {} for board {} by user {}", invitationId, boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
         Invitation invitation = invitationRepository.findById(invitationId)
                 .orElseThrow(() -> new RuntimeException("Invitation not found"));
-        
+
         if (!invitation.getBoard().getId().equals(boardId)) {
-            log.warn("Invitation {} does not belong to board {}", invitationId, boardId);
             throw new RuntimeException("Invitation does not belong to this board");
         }
-        
+
         invitationRepository.delete(invitation);
         log.info("Invitation {} cancelled successfully for board {}", invitationId, boardId);
     }
@@ -353,18 +388,15 @@ public class BoardService {
                     return new RuntimeException("Access denied");
                 });
         if (minRole == BoardMember.Role.OWNER && m.getRole() != BoardMember.Role.OWNER) {
-            log.warn("User {} attempted owner-only action on board {}", userId, boardId);
             throw new RuntimeException("Only board owner can perform this action");
         }
         if (minRole == BoardMember.Role.EDITOR && m.getRole() == BoardMember.Role.VIEWER) {
-            log.warn("User {} attempted editor action on board {}", userId, boardId);
             throw new RuntimeException("Viewers cannot perform this action");
         }
     }
 
     public boolean isOwner(Long boardId, Long userId) {
         return boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
-                .map(m -> m.getRole() == BoardMember.Role.OWNER)
-                .orElse(false);
+                .map(m -> m.getRole() == BoardMember.Role.OWNER).orElse(false);
     }
 }

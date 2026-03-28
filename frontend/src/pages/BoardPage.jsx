@@ -93,6 +93,14 @@ const BoardPage = () => {
       })
     }
 
+    // Handle presence updates from WebSocket
+    if (event.eventType === 'presence.update') {
+      if (Array.isArray(event.payload)) {
+        setOnlineUsers(event.payload)
+      }
+      return
+    }
+
     // Invalidate React Query cache to refetch fresh data
     const type = event.eventType || ''
     if (type.startsWith('card') || type.startsWith('column') || type === 'board.updated') {
@@ -114,6 +122,34 @@ const BoardPage = () => {
   useWebSocket(boardId, handleBoardEvent)
 
   const [showArchivedPanel, setShowArchivedPanel] = useState(false)
+  const [onlineUsers, setOnlineUsers] = useState([])
+
+  // Join board presence on mount, heartbeat every 30s, leave on unmount
+  useEffect(() => {
+    if (!boardId) return
+
+    // Announce arrival
+    boardAPI.joinBoard(boardId)
+      .then(res => {
+        if (res.data?.data) setOnlineUsers(res.data.data)
+      })
+      .catch(() => {})
+
+    // Send heartbeat every 30 seconds so backend knows we're still here
+    const heartbeatInterval = setInterval(() => {
+      boardAPI.heartbeat(boardId)
+        .then(res => {
+          if (res.data?.data) setOnlineUsers(res.data.data)
+        })
+        .catch(() => {})
+    }, 30000)
+
+    return () => {
+      clearInterval(heartbeatInterval)
+      // Leave when navigating away
+      boardAPI.leaveBoard(boardId).catch(() => {})
+    }
+  }, [boardId])
 
   const { data: archivedCards } = useQuery({
     queryKey: ['archivedCards', boardId],
@@ -166,6 +202,28 @@ const BoardPage = () => {
     },
     refetchInterval: isDragging ? false : 15000
   })
+
+  const { data: starredIds } = useQuery({
+    queryKey: ['starredBoards'],
+    queryFn: async () => {
+      const response = await boardAPI.getStarredBoards()
+      return response.data.data
+    }
+  })
+
+  const isStarred = starredIds?.includes(Number(boardId))
+
+  const toggleStarMutation = useMutation({
+    mutationFn: async () => {
+      const response = await boardAPI.toggleStar(boardId)
+      return response.data.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['starredBoards'])
+      toast.success(data.starred ? 'Board starred!' : 'Board unstarred', { id: 'star-toggle' })
+    }
+  })
+
 
   const { isOwner, isEditor, isViewer, canEdit, canInvite, isLoading: permissionsLoading } = usePermissions(boardId)
   
@@ -558,9 +616,43 @@ const BoardPage = () => {
                     )}
                   </h1>
                 )}
-                <div className="flex items-center space-x-2 text-white/80 text-sm">
-                  <FiStar className="w-4 h-4" />
+                <div className="flex items-center space-x-3 text-white/80 text-sm">
+                  <button
+                    onClick={() => toggleStarMutation.mutate()}
+                    className="flex items-center gap-1 hover:text-yellow-300 transition-colors"
+                    title={isStarred ? 'Unstar board' : 'Star board'}
+                  >
+                    {isStarred ? (
+                      <FiStar className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                    ) : (
+                      <FiStar className="w-5 h-5" />
+                    )}
+                  </button>
                   <span>{memberCount} {memberLabel}</span>
+                  {onlineUsers.length > 0 && (
+                    <div className="flex items-center gap-1 ml-2">
+                      <div className="flex -space-x-2">
+                        {onlineUsers.slice(0, 5).map((u) => (
+                          <div
+                            key={u.id}
+                            className="h-7 w-7 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 ring-2 ring-white/30 flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm"
+                            title={`${u.name} (online)`}
+                          >
+                            {(u.name || 'U').charAt(0)}
+                          </div>
+                        ))}
+                        {onlineUsers.length > 5 && (
+                          <div className="h-7 w-7 rounded-full bg-white/20 ring-2 ring-white/30 flex items-center justify-center text-[10px] font-bold text-white">
+                            +{onlineUsers.length - 5}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 ml-1">
+                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                        <span className="text-xs text-white/70">{onlineUsers.length} online</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex space-x-3">

@@ -15,6 +15,7 @@ export const boardAPI = {
   getBoards: (paramsOrPage, size) => api.get('/boards', { params: buildParams(paramsOrPage, size) }),
   getBoard: (id) => api.get(`/boards/${id}`),
   createBoard: (boardData) => api.post('/boards', boardData),
+  createFromTemplate: (data) => api.post('/boards/from-template', data),
   updateBoard: (id, boardData) => api.patch(`/boards/${id}`, boardData),
   getBoardColumns: (id, paramsOrPage, size) => api.get(`/boards/${id}/columns`, { params: buildParams(paramsOrPage, size) }),
   getBoardMembers: (id) => api.get(`/boards/${id}/members`),
@@ -22,6 +23,12 @@ export const boardAPI = {
   removeMember: (boardId, memberId) => api.delete(`/boards/${boardId}/members/${memberId}`),
   cancelInvitation: (boardId, invitationId) => api.delete(`/boards/${boardId}/invitations/${invitationId}`),
   getBoardActivity: (id, paramsOrPage, size) => api.get(`/boards/${id}/activity`, { params: buildParams(paramsOrPage, size) }),
+  toggleStar: (id) => api.post(`/boards/${id}/star`),
+  getStarredBoards: () => api.get('/boards/starred'),
+  joinBoard: (boardId) => api.post(`/boards/${boardId}/presence/join`),
+  leaveBoard: (boardId) => api.post(`/boards/${boardId}/presence/leave`),
+  heartbeat: (boardId) => api.post(`/boards/${boardId}/presence/heartbeat`),
+  getPresence: (boardId) => api.get(`/boards/${boardId}/presence`),
   deleteBoard: (id) => api.delete(`/boards/${id}`),
 }
 

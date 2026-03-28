@@ -10,6 +10,17 @@ const CreateBoardModal = ({ onClose }) => {
     background: '#0079BF'
   })
   const [errors, setErrors] = useState({})
+  const [selectedTemplate, setSelectedTemplate] = useState('BLANK')
+
+  const TEMPLATES = [
+    { id: 'BLANK', name: 'Blank Board', desc: 'Start from scratch', icon: '📋', columns: 'No preset columns' },
+    { id: 'SCRUM', name: 'Scrum Board', desc: 'Agile sprints', icon: '🏃', columns: 'Backlog, Sprint, In Progress, Review, Done' },
+    { id: 'BUG_TRACKER', name: 'Bug Tracker', desc: 'Track & fix bugs', icon: '🐛', columns: 'New, Triaging, In Progress, Testing, Resolved, Closed' },
+    { id: 'MARKETING', name: 'Marketing', desc: 'Campaign pipeline', icon: '📢', columns: 'Ideas, Planning, In Progress, Review, Published' },
+    { id: 'PERSONAL', name: 'Personal', desc: 'Simple to-do', icon: '✅', columns: 'To Do, Doing, Done' },
+    { id: 'DESIGN', name: 'Design', desc: 'Design workflow', icon: '🎨', columns: 'Research, Wireframes, Design, Feedback, Final' },
+  ]
+
   const queryClient = useQueryClient()
 
   const backgroundOptions = [
@@ -22,8 +33,16 @@ const CreateBoardModal = ({ onClose }) => {
 
   const createMutation = useMutation({
     mutationFn: async (boardData) => {
-      const response = await boardAPI.createBoard(boardData)
-      return response.data.data
+      if (selectedTemplate === 'BLANK') {
+        const response = await boardAPI.createBoard(boardData)
+        return response.data.data
+      } else {
+        const response = await boardAPI.createFromTemplate({
+          ...boardData,
+          template: selectedTemplate
+        })
+        return response.data.data
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] })
@@ -130,6 +149,40 @@ const CreateBoardModal = ({ onClose }) => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Template Selection */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold text-gray-700">
+                Template
+              </label>
+              <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                {TEMPLATES.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setSelectedTemplate(t.id)}
+                    className={`text-left p-2.5 rounded-xl border-2 transition-all duration-200 ${
+                      selectedTemplate === t.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
+                        : 'border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-gray-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl shrink-0">{t.icon}</span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{t.name}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{t.desc}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {selectedTemplate !== 'BLANK' && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                  <span className="font-bold text-gray-700 dark:text-gray-300">Preset Columns:</span> {TEMPLATES.find(t => t.id === selectedTemplate)?.columns}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-8 border-t border-gray-100 mt-10">
