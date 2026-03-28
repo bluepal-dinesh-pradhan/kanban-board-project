@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
@@ -721,6 +721,28 @@ const BoardPage = () => {
                                             <p className="text-[12px] text-gray-500 mb-3 line-clamp-2 leading-relaxed">
                                               {stripHtml(card.description)}
                                             </p>
+                                          )}
+
+                                          {/* Checklist progress */}
+                                          {card.checklistTotal > 0 && (
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <FiCheckSquare className="w-3 h-3 text-gray-400 shrink-0" />
+                                              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                <div
+                                                  className={`h-1.5 rounded-full transition-all ${
+                                                    card.checklistCompleted === card.checklistTotal
+                                                      ? 'bg-green-500' : 'bg-blue-500'
+                                                  }`}
+                                                  style={{ width: `${Math.round((card.checklistCompleted / card.checklistTotal) * 100)}%` }}
+                                                />
+                                              </div>
+                                              <span className={`text-[10px] font-bold ${
+                                                card.checklistCompleted === card.checklistTotal
+                                                  ? 'text-green-600' : 'text-gray-500'
+                                              }`}>
+                                                {card.checklistCompleted}/{card.checklistTotal}
+                                              </span>
+                                            </div>
                                           )}
 
                                           <div className="flex items-center justify-between text-xs text-gray-500">
