@@ -228,6 +228,29 @@ public class BoardController {
         List<Long> ids = boardService.getStarredBoardIds(user.getId());
         return ResponseEntity.ok(ApiResponse.ok(ids));
     }
+    
+    @Operation(summary = "Create board from template", description = "Creates a new board with preset columns based on a template type.")
+    @PostMapping("/from-template")
+    public ResponseEntity<ApiResponse<BoardDto>> createFromTemplate(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal user) {
+        String title = body.get("title");
+        String background = body.get("background");
+        String template = body.get("template");
+
+        if (title == null || title.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Title is required", null));
+        }
+        if (template == null || template.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Template type is required", null));
+        }
+
+        BoardDto dto = boardService.createFromTemplate(title.trim(), background, template.trim(), user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Board created from template", dto));
+    }
 
     @Operation(
             summary = "Delete board",

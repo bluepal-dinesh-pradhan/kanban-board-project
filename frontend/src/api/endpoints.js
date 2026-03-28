@@ -15,6 +15,7 @@ export const boardAPI = {
   getBoards: (paramsOrPage, size) => api.get('/boards', { params: buildParams(paramsOrPage, size) }),
   getBoard: (id) => api.get(`/boards/${id}`),
   createBoard: (boardData) => api.post('/boards', boardData),
+  createFromTemplate: (data) => api.post('/boards/from-template', data),
   updateBoard: (id, boardData) => api.patch(`/boards/${id}`, boardData),
   getBoardColumns: (id, paramsOrPage, size) => api.get(`/boards/${id}/columns`, { params: buildParams(paramsOrPage, size) }),
   getBoardMembers: (id) => api.get(`/boards/${id}/members`),
