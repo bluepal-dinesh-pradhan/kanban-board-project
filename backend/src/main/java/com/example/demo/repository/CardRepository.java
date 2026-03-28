@@ -24,4 +24,6 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     @Transactional
     @Query("DELETE FROM Card c WHERE c.column.board.id = :boardId")
     void deleteByBoardId(@Param("boardId") Long boardId);
+    
+    List<Card> findByColumnBoardIdAndArchivedTrue(Long boardId);
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser } from 'react-icons/fi'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser, FiCheckSquare, FiCopy } from 'react-icons/fi'
 import { cardAPI, boardAPI } from '../api/endpoints'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
@@ -92,6 +92,70 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
       toast.error(error?.response?.data?.message || 'Failed to assign card')
     }
   })
+
+  const [newChecklistItem, setNewChecklistItem] = useState('')
+
+  const { data: checklistItems } = useQuery({
+    queryKey: ['card', cardId, 'checklists'],
+    enabled: Boolean(cardId),
+    queryFn: async () => {
+      const response = await cardAPI.getChecklists(cardId)
+      return response.data.data
+    }
+  })
+
+  const addChecklistMutation = useMutation({
+    mutationFn: async (title) => {
+      const response = await cardAPI.addChecklistItem(cardId, title)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'checklists'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      setNewChecklistItem('')
+    }
+  })
+
+  const toggleChecklistMutation = useMutation({
+    mutationFn: async (itemId) => {
+      const response = await cardAPI.toggleChecklistItem(itemId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'checklists'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+    }
+  })
+
+  const deleteChecklistMutation = useMutation({
+    mutationFn: async (itemId) => {
+      const response = await cardAPI.deleteChecklistItem(itemId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'checklists'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+    }
+  })
+
+  const duplicateCardMutation = useMutation({
+    mutationFn: async () => {
+      const response = await cardAPI.duplicateCard(cardId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('Card duplicated!', { id: 'card-duplicated' })
+      onClose()
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to duplicate card')
+    }
+  })
+
+  const checklistTotal = checklistItems?.length || 0
+  const checklistCompleted = checklistItems?.filter(i => i.completed).length || 0
+  const checklistPercent = checklistTotal > 0 ? Math.round((checklistCompleted / checklistTotal) * 100) : 0
 
   useEffect(() => {
     if (card) {
@@ -434,6 +498,97 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
                 </div>
               </div>
 
+              {/* Checklist Section */}
+              <div className="flex items-start gap-3">
+                <FiCheckSquare className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 w-full">
+                  <div className="flex items-center justify-between mb-3 mt-1">
+                    <h3 className="text-lg font-semibold text-gray-900">Checklist</h3>
+                    {checklistTotal > 0 && (
+                      <span className="text-sm font-medium text-gray-500">
+                        {checklistCompleted}/{checklistTotal}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  {checklistTotal > 0 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          checklistPercent === 100 ? 'bg-green-500' : 'bg-blue-500'
+                        }`}
+                        style={{ width: `${checklistPercent}%` }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Checklist items */}
+                  <div className="space-y-1.5 mb-4">
+                    {checklistItems?.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`flex items-center gap-3 p-2 rounded-lg group hover:bg-gray-50 transition-colors ${
+                          item.completed ? 'opacity-60' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.completed}
+                          onChange={() => canEdit && toggleChecklistMutation.mutate(item.id)}
+                          disabled={!canEdit}
+                          className="h-4 w-4 text-blue-600 rounded border-gray-300 cursor-pointer accent-blue-600"
+                        />
+                        <span className={`flex-1 text-sm ${
+                          item.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                        }`}>
+                          {item.title}
+                        </span>
+                        {canEdit && (
+                          <button
+                            onClick={() => deleteChecklistMutation.mutate(item.id)}
+                            className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded"
+                          >
+                            <FiX className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {checklistTotal === 0 && (
+                      <p className="text-sm text-gray-400 italic">No checklist items yet</p>
+                    )}
+                  </div>
+
+                  {/* Add checklist item */}
+                  {canEdit && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        if (newChecklistItem.trim()) {
+                          addChecklistMutation.mutate(newChecklistItem.trim())
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        placeholder="Add an item..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newChecklistItem.trim() || addChecklistMutation.isPending}
+                        className="px-4 py-2 bg-gray-800 text-white hover:bg-gray-900 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+                      >
+                        Add
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
               {/* Comments Section */}
               <div className="flex items-start gap-3 pt-6 border-t border-gray-200/70">
                 <FiMessageSquare className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
@@ -659,6 +814,14 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
               {canEdit && !isViewer && (
                 <div className="space-y-4">
                   <div className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Actions</div>
+                  <button
+                    onClick={() => duplicateCardMutation.mutate()}
+                    disabled={duplicateCardMutation.isPending}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-sm font-semibold border border-gray-200 hover:border-blue-200 transition-all shadow-sm"
+                  >
+                    <FiCopy className="w-4 h-4" />
+                    Duplicate Card
+                  </button>
                   <button
                     onClick={() => archiveCardMutation.mutate()}
                     className="w-full flex items-center gap-2 px-4 py-2.5 bg-gray-50 text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-xl text-sm font-semibold border border-gray-200 hover:border-red-200 transition-all shadow-sm"

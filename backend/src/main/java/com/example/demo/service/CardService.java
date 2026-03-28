@@ -205,6 +205,86 @@ public class CardService {
     }
     
     
+ // ============================================================
+    // ADD these 2 methods to your existing CardService.java
+    // Place them after the assignCard() method
+    // ============================================================
+
+    @Transactional
+    public CardDto duplicate(Long cardId, Long userId) {
+        log.info("Duplicating card {} by user {}", cardId, userId);
+        Card original = cardRepository.findById(cardId).orElseThrow();
+        Long boardId = original.getColumn().getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        int pos = cardRepository.countByColumnIdAndArchivedFalse(original.getColumn().getId());
+
+        Card copy = Card.builder()
+                .column(original.getColumn())
+                .title(original.getTitle() + " (copy)")
+                .description(original.getDescription())
+                .dueDate(original.getDueDate())
+                .priority(original.getPriority())
+                .position(pos)
+                .build();
+        copy = cardRepository.save(copy);
+
+        // Copy labels
+        for (CardLabel label : original.getLabels()) {
+            CardLabel newLabel = CardLabel.builder()
+                    .card(copy).color(label.getColor()).text(label.getText()).build();
+            cardLabelRepository.save(newLabel);
+            copy.getLabels().add(newLabel);
+        }
+
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
+        activityService.log(board, user, "DUPLICATED_CARD", "CARD", copy.getId());
+
+        CardDto dto = CardDto.from(copy);
+        log.info("Card {} duplicated as card {}", cardId, copy.getId());
+
+        broadcastSafely(boardId, "card.created", userId, user.getFullName(), dto);
+
+        return dto;
+    }
+
+    @Transactional
+    public CardDto restore(Long cardId, Long userId) {
+        log.info("Restoring card {} by user {}", cardId, userId);
+        Card card = cardRepository.findById(cardId).orElseThrow();
+        Long boardId = card.getColumn().getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        if (!card.isArchived()) {
+            throw new RuntimeException("Card is not archived");
+        }
+
+        card.setArchived(false);
+        int pos = cardRepository.countByColumnIdAndArchivedFalse(card.getColumn().getId());
+        card.setPosition(pos);
+        card = cardRepository.save(card);
+
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
+        activityService.log(board, user, "RESTORED_CARD", "CARD", card.getId());
+
+        CardDto dto = CardDto.from(card);
+        log.info("Card {} restored successfully", cardId);
+
+        broadcastSafely(boardId, "card.created", userId, user.getFullName(), dto);
+
+        return dto;
+    }
+
+    public List<CardDto> getArchivedCards(Long boardId, Long userId) {
+        log.info("Fetching archived cards for board {} by user {}", boardId, userId);
+        boardService.checkAccess(boardId, userId);
+        List<Card> cards = cardRepository.findByColumnBoardIdAndArchivedTrue(boardId);
+        return cards.stream().map(CardDto::from).collect(Collectors.toList());
+    }
+    
+    
     
 
     @Transactional

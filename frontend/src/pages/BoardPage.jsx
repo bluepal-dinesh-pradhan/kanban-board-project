@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare, FiArchive } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
@@ -112,6 +112,32 @@ const BoardPage = () => {
   }
 
   useWebSocket(boardId, handleBoardEvent)
+
+  const [showArchivedPanel, setShowArchivedPanel] = useState(false)
+
+  const { data: archivedCards } = useQuery({
+    queryKey: ['archivedCards', boardId],
+    queryFn: async () => {
+      const response = await cardAPI.getArchivedCards(boardId)
+      return response.data.data
+    },
+    enabled: showArchivedPanel
+  })
+
+  const restoreCardMutation = useMutation({
+    mutationFn: async (cardId) => {
+      const response = await cardAPI.restoreCard(cardId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      queryClient.invalidateQueries(['archivedCards', boardId])
+      toast.success('Card restored!', { id: 'card-restored' })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to restore card')
+    }
+  })
 
 
   const { data: boards } = useQuery({
@@ -570,6 +596,13 @@ const BoardPage = () => {
                   <FiActivity className="mr-2 h-4 w-4" />
                   Activity
                 </button>
+                <button
+                  onClick={() => setShowArchivedPanel(true)}
+                  className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
+                >
+                  <FiArchive className="mr-2 h-4 w-4" />
+                  Archived
+                </button>
                 {isOwner && (
                   <button
                     onClick={handleDeleteBoard}
@@ -721,6 +754,28 @@ const BoardPage = () => {
                                             <p className="text-[12px] text-gray-500 mb-3 line-clamp-2 leading-relaxed">
                                               {stripHtml(card.description)}
                                             </p>
+                                          )}
+
+                                          {/* Checklist progress */}
+                                          {card.checklistTotal > 0 && (
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <FiCheckSquare className="w-3 h-3 text-gray-400 shrink-0" />
+                                              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                <div
+                                                  className={`h-1.5 rounded-full transition-all ${
+                                                    card.checklistCompleted === card.checklistTotal
+                                                      ? 'bg-green-500' : 'bg-blue-500'
+                                                  }`}
+                                                  style={{ width: `${Math.round((card.checklistCompleted / card.checklistTotal) * 100)}%` }}
+                                                />
+                                              </div>
+                                              <span className={`text-[10px] font-bold ${
+                                                card.checklistCompleted === card.checklistTotal
+                                                  ? 'text-green-600' : 'text-gray-500'
+                                              }`}>
+                                                {card.checklistCompleted}/{card.checklistTotal}
+                                              </span>
+                                            </div>
                                           )}
 
                                           <div className="flex items-center justify-between text-xs text-gray-500">
@@ -1001,6 +1056,84 @@ const BoardPage = () => {
                   >
                     Done
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showArchivedPanel && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/30"
+                onClick={() => setShowArchivedPanel(false)}
+              ></div>
+              <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-[-4px_0_20px_rgba(0,0,0,0.1)] border-l border-gray-100 flex flex-col">
+                <div className="flex items-center justify-between px-5 p-4 border-b border-gray-100 bg-white z-10">
+                  <div className="flex items-center space-x-2.5">
+                    <FiArchive className="w-4 h-4 text-gray-600" />
+                    <h3 className="text-lg font-bold text-gray-900 tracking-tight">Archived Cards</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowArchivedPanel(false)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <FiX className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                  {!archivedCards || archivedCards.length === 0 ? (
+                    <div className="text-center py-12">
+                      <FiArchive className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">No archived cards</p>
+                      <p className="text-xs text-gray-400 mt-1">Cards you archive will appear here</p>
+                    </div>
+                  ) : (
+                    archivedCards.map((card) => (
+                      <div
+                        key={card.id}
+                        className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm text-gray-900 truncate">{card.title}</h4>
+                            {card.description && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                {card.description.replace(/<[^>]*>/g, '').trim()}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2 mt-2">
+                              {card.priority && card.priority !== 'NONE' && (
+                                <span className="text-[10px] font-bold text-gray-500">
+                                  {card.priority}
+                                </span>
+                              )}
+                              {card.labels?.length > 0 && (
+                                <div className="flex gap-1">
+                                  {card.labels.map((label, i) => (
+                                    <span
+                                      key={i}
+                                      className="w-4 h-2 rounded-sm"
+                                      style={{ backgroundColor: label.color }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {canEdit && (
+                            <button
+                              onClick={() => restoreCardMutation.mutate(card.id)}
+                              disabled={restoreCardMutation.isPending}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shrink-0 disabled:opacity-50"
+                            >
+                              Restore
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

@@ -65,7 +65,12 @@ public class Card {
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CardReminder> reminders = new ArrayList<>();
-
+    
+    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    @Builder.Default
+    private List<Checklist> checklists = new ArrayList<>();
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

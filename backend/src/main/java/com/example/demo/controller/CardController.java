@@ -87,6 +87,40 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Card assigned", dto));
     }
     
+    
+ // ============================================================
+    // ADD these 3 endpoints to your existing CardController.java
+    // Place them after the assignCard endpoint
+    // ============================================================
+
+    @Operation(summary = "Duplicate card", description = "Creates a copy of a card with all labels.")
+    @PostMapping("/{cardId}/duplicate")
+    public ResponseEntity<ApiResponse<CardDto>> duplicateCard(
+            @PathVariable Long cardId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        CardDto dto = cardService.duplicate(cardId, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Card duplicated", dto));
+    }
+
+    @Operation(summary = "Restore card", description = "Restores an archived card back to its column.")
+    @PostMapping("/{cardId}/restore")
+    public ResponseEntity<ApiResponse<CardDto>> restoreCard(
+            @PathVariable Long cardId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        CardDto dto = cardService.restore(cardId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok("Card restored", dto));
+    }
+
+    @Operation(summary = "Get archived cards", description = "Returns all archived cards for a board.")
+    @GetMapping("/boards/{boardId}/archived")
+    public ResponseEntity<ApiResponse<List<CardDto>>> getArchivedCards(
+            @PathVariable Long boardId,
+            @AuthenticationPrincipal UserPrincipal user) {
+        List<CardDto> cards = cardService.getArchivedCards(boardId, user.getId());
+        return ResponseEntity.ok(ApiResponse.ok(cards));
+    }
+    
 
     @Operation(summary = "Move card", description = "Moves a card to a different position or column.")
     @PostMapping("/{id}/move")

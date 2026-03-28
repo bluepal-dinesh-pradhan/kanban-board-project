@@ -15,51 +15,28 @@ import lombok.NoArgsConstructor;
 @Data @AllArgsConstructor @NoArgsConstructor
 public class CardDto {
 
-    @Schema(description = "Card id.")
     private Long id;
-
-    @Schema(description = "Card title.")
     private String title;
-
-    @Schema(description = "Card description.")
     private String description;
-
-    @Schema(description = "Card due date.")
     private LocalDate dueDate;
-
-    @Schema(description = "Card position within its column.")
     private int position;
-
-    @Schema(description = "Column id containing the card.")
     private Long columnId;
-
-    @Schema(description = "Labels attached to the card.")
     private List<LabelDto> labels;
-
-    @Schema(description = "Reminders configured for the card.")
     private List<CardReminderDto> reminders;
-
-    @Schema(description = "Number of comments on the card.")
     private int commentCount;
-
-    @Schema(description = "Card creation timestamp.")
     private LocalDateTime createdAt;
-
-    @Schema(description = "Whether the card is overdue.")
     private boolean isOverdue;
-
-    @Schema(description = "Card priority level: URGENT, HIGH, MEDIUM, LOW, NONE")
     private String priority;
-
-    // NEW: Assignee info
-    @Schema(description = "Assigned user id.")
     private Long assigneeId;
-
-    @Schema(description = "Assigned user full name.")
     private String assigneeName;
-
-    @Schema(description = "Assigned user email.")
     private String assigneeEmail;
+
+    // NEW: Checklist progress
+    @Schema(description = "Total checklist items.")
+    private int checklistTotal;
+
+    @Schema(description = "Completed checklist items.")
+    private int checklistCompleted;
 
     public static CardDto from(Card c) {
         List<LabelDto> labels = c.getLabels().stream()
@@ -86,11 +63,19 @@ public class CardDto {
         dto.setOverdue(isOverdue);
         dto.setPriority(c.getPriority() != null ? c.getPriority().name() : "NONE");
 
-        // NEW: Assignee
+        // Assignee
         if (c.getAssignee() != null) {
             dto.setAssigneeId(c.getAssignee().getId());
             dto.setAssigneeName(c.getAssignee().getFullName());
             dto.setAssigneeEmail(c.getAssignee().getEmail());
+        }
+
+        // NEW: Checklist progress
+        if (c.getChecklists() != null && !c.getChecklists().isEmpty()) {
+            dto.setChecklistTotal(c.getChecklists().size());
+            dto.setChecklistCompleted(
+                (int) c.getChecklists().stream().filter(cl -> cl.isCompleted()).count()
+            );
         }
 
         return dto;
