@@ -27,7 +27,7 @@ public class CardService {
     private final BoardService boardService;
     private final ActivityService activityService;
     private final ReminderService reminderService;
-    private final WebSocketNotificationService webSocketNotificationService; // NEW
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Transactional
     public CardDto create(Long boardId, CardRequest req, Long userId) {
@@ -40,6 +40,16 @@ public class CardService {
         Card card = Card.builder()
                 .column(col).title(req.getTitle()).description(req.getDescription())
                 .dueDate(req.getDueDate()).position(pos).build();
+
+        // NEW: Set priority
+        if (req.getPriority() != null) {
+            try {
+                card.setPriority(Priority.valueOf(req.getPriority()));
+            } catch (IllegalArgumentException e) {
+                card.setPriority(Priority.NONE);
+            }
+        }
+
         card = cardRepository.save(card);
 
         if (req.getLabels() != null) {
@@ -53,8 +63,7 @@ public class CardService {
 
         Board board = boardRepository.findById(boardId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
-        
-        // Create reminder if due date and reminder type are set
+
         if (req.getDueDate() != null && req.getReminderType() != null) {
             try {
                 CardReminder.ReminderType reminderType = CardReminder.ReminderType.valueOf(req.getReminderType());
@@ -63,12 +72,11 @@ public class CardService {
                 log.warn("Invalid reminder type '{}' for card {}", req.getReminderType(), card.getId());
             }
         }
-        
+
         activityService.log(board, user, "CREATED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card '{}' created successfully with id {}", card.getTitle(), card.getId());
 
-        // NEW: Broadcast real-time event
         broadcastSafely(boardId, "card.created", userId, user.getFullName(), dto);
 
         return dto;
@@ -86,7 +94,15 @@ public class CardService {
         card.setDescription(req.getDescription());
         card.setDueDate(req.getDueDate());
 
-        // Update labels
+        // NEW: Update priority
+        if (req.getPriority() != null) {
+            try {
+                card.setPriority(Priority.valueOf(req.getPriority()));
+            } catch (IllegalArgumentException e) {
+                card.setPriority(Priority.NONE);
+            }
+        }
+
         cardLabelRepository.deleteAllByCardId(cardId);
         card.getLabels().clear();
         if (req.getLabels() != null) {
@@ -101,8 +117,7 @@ public class CardService {
         card = cardRepository.save(card);
         Board board = boardRepository.findById(boardId).orElseThrow();
         User user = userRepository.findById(userId).orElseThrow();
-        
-        // Update reminder if due date and reminder type are set
+
         if (req.getDueDate() != null && req.getReminderType() != null) {
             try {
                 CardReminder.ReminderType reminderType = CardReminder.ReminderType.valueOf(req.getReminderType());
@@ -113,16 +128,84 @@ public class CardService {
         } else if (req.getDueDate() == null) {
             reminderService.deleteCardReminders(cardId);
         }
-        
+
         activityService.log(board, user, "UPDATED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card {} updated successfully", cardId);
 
-        // NEW: Broadcast real-time event
         broadcastSafely(boardId, "card.updated", userId, user.getFullName(), dto);
 
         return dto;
     }
+
+    // NEW: Quick priority update endpoint
+    @Transactional
+    public CardDto updatePriority(Long cardId, String priorityStr, Long userId) {
+        log.info("Updating priority of card {} to {} by user {}", cardId, priorityStr, userId);
+        Card card = cardRepository.findById(cardId).orElseThrow();
+        Long boardId = card.getColumn().getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        try {
+            card.setPriority(Priority.valueOf(priorityStr));
+        } catch (IllegalArgumentException e) {
+            card.setPriority(Priority.NONE);
+        }
+        card = cardRepository.save(card);
+
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
+        activityService.log(board, user, "SET_PRIORITY_" + priorityStr, "CARD", cardId);
+
+        CardDto dto = CardDto.from(card);
+        log.info("Card {} priority updated to {}", cardId, priorityStr);
+
+        broadcastSafely(boardId, "card.updated", userId, user.getFullName(), dto);
+
+        return dto;
+    }
+    
+ // ============================================================
+    // ADD this method to your existing CardService.java
+    // Place it after the updatePriority() method
+    // ============================================================
+
+    @Transactional
+    public CardDto assignCard(Long cardId, Long assigneeId, Long userId) {
+        log.info("Assigning card {} to user {} by user {}", cardId, assigneeId, userId);
+        Card card = cardRepository.findById(cardId).orElseThrow();
+        Long boardId = card.getColumn().getBoard().getId();
+        boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
+
+        if (assigneeId != null) {
+            // Verify assignee is a board member
+            User assignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            boardService.checkAccess(boardId, assigneeId); // Ensures they're a member
+            card.setAssignee(assignee);
+        } else {
+            // Unassign
+            card.setAssignee(null);
+        }
+
+        card = cardRepository.save(card);
+
+        Board board = boardRepository.findById(boardId).orElseThrow();
+        User user = userRepository.findById(userId).orElseThrow();
+
+        String action = assigneeId != null ? "ASSIGNED_CARD" : "UNASSIGNED_CARD";
+        activityService.log(board, user, action, "CARD", cardId);
+
+        CardDto dto = CardDto.from(card);
+        log.info("Card {} assignee updated successfully", cardId);
+
+        broadcastSafely(boardId, "card.updated", userId, user.getFullName(), dto);
+
+        return dto;
+    }
+    
+    
+    
 
     @Transactional
     public CardDto move(Long cardId, MoveCardRequest req, Long userId) {
@@ -137,10 +220,7 @@ public class CardService {
         BoardColumn sourceCol = card.getColumn();
         BoardColumn targetCol = columnRepository.findById(req.getTargetColumnId()).orElseThrow();
 
-        // Remove from source
         cardRepository.decrementPositionsAfter(sourceCol.getId(), card.getPosition());
-
-        // Insert into target
         cardRepository.incrementPositionsFrom(targetCol.getId(), req.getNewPosition());
         card.setColumn(targetCol);
         card.setPosition(req.getNewPosition());
@@ -152,7 +232,6 @@ public class CardService {
         CardDto dto = CardDto.from(card);
         log.info("Card {} moved successfully", cardId);
 
-        // NEW: Broadcast real-time event with move details
         Map<String, Object> movePayload = Map.of(
             "card", dto,
             "sourceColumnId", sourceColumnId,
@@ -191,7 +270,6 @@ public class CardService {
         CardDto dto = CardDto.from(card);
         log.info("Card {} archived successfully", cardId);
 
-        // NEW: Broadcast real-time event
         broadcastSafely(boardId, "card.archived", userId, user.getFullName(), dto);
 
         return dto;
@@ -248,7 +326,6 @@ public class CardService {
 
         log.info("Card {} deleted successfully", cardId);
 
-        // NEW: Broadcast real-time event
         Map<String, Object> deletePayload = Map.of(
             "cardId", cardId,
             "columnId", columnId,
@@ -257,9 +334,6 @@ public class CardService {
         broadcastSafely(boardId, "card.deleted", userId, user.getFullName(), deletePayload);
     }
 
-    // =========================================================
-    // HELPER: Safe WebSocket broadcast (never breaks main flow)
-    // =========================================================
     private void broadcastSafely(Long boardId, String eventType, Long userId, String userName, Object payload) {
         try {
             webSocketNotificationService.broadcastBoardEvent(boardId, eventType, userId, userName, payload);

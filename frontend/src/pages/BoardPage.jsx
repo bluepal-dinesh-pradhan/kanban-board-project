@@ -27,6 +27,17 @@ const stripHtml = (html) => {
   return html.replace(/<[^>]*>/g, '').trim();
 };
 
+const getPriorityBadge = (priority) => {
+  if (!priority || priority === 'NONE') return null
+  const config = {
+    URGENT: { label: 'Urgent', dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
+    HIGH: { label: 'High', dot: 'bg-orange-500', text: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+    MEDIUM: { label: 'Medium', dot: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200' },
+    LOW: { label: 'Low', dot: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
+  }
+  return config[priority] || null
+}
+
 const BoardPage = () => {
   const { boardId } = useParams()
   const [showCreateCard, setShowCreateCard] = useState(null)
@@ -683,6 +694,13 @@ const BoardPage = () => {
                                         } ${isMatch ? 'opacity-100' : 'opacity-20'} relative`}
                                       >
                                         <div className="p-3.5">
+                                          {/* Priority badge */}
+                                          {getPriorityBadge(card.priority) && (
+                                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border mb-2 ${getPriorityBadge(card.priority).bg} ${getPriorityBadge(card.priority).text} ${getPriorityBadge(card.priority).border}`}>
+                                              <span className={`w-1.5 h-1.5 rounded-full ${getPriorityBadge(card.priority).dot}`}></span>
+                                              {getPriorityBadge(card.priority).label}
+                                            </div>
+                                          )}
                                           {card.labels?.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 mb-2.5">
                                               {card.labels.map((label) => (
@@ -721,6 +739,14 @@ const BoardPage = () => {
                                                 </div>
                                               )}
                                             </div>
+                                            {card.assigneeName && (
+                                              <div
+                                                className="h-[22px] w-[22px] rounded-full ring-2 ring-white bg-gradient-to-br from-blue-600 to-purple-600 shadow-sm flex items-center justify-center text-[9px] font-bold text-white uppercase ml-auto"
+                                                title={card.assigneeName}
+                                              >
+                                                {card.assigneeName.charAt(0)}
+                                              </div>
+                                            )}
                                             {card.members?.length > 0 && (
                                               <div className="flex -space-x-1.5 overflow-hidden ml-2">
                                                 {card.members.map((member) => (

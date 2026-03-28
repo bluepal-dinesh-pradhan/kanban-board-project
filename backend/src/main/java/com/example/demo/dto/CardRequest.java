@@ -23,4 +23,7 @@ public class CardRequest {
     private List<LabelDto> labels;
     @Schema(description = "Reminder type.", example = "ONE_DAY_BEFORE")
     private String reminderType; // ONE_DAY_BEFORE, TWO_DAYS_BEFORE, ONE_WEEK_BEFORE, AT_DUE_TIME
+
+    @Schema(description = "Card priority level.", example = "MEDIUM")
+    private String priority;
 }

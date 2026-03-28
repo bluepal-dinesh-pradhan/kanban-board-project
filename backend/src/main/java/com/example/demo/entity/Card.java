@@ -18,7 +18,6 @@ import java.util.List;
 )
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Card {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,6 +39,16 @@ public class Card {
 
     @Builder.Default
     private boolean archived = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    @Builder.Default
+    private Priority priority = Priority.NONE;
+
+    // NEW: Card assignee
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
