@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class ColumnService {
     private final UserRepository userRepository;
     private final BoardService boardService;
     private final ActivityService activityService;
+    private final WebSocketNotificationService webSocketNotificationService; // NEW
 
     @Transactional
     public ColumnDto create(Long boardId, ColumnRequest req, Long userId) {
@@ -40,6 +42,10 @@ public class ColumnService {
         activityService.log(board, user, "CREATED_COLUMN", "COLUMN", col.getId());
         ColumnDto dto = ColumnDto.from(col);
         log.info("Column '{}' created successfully with id {}", col.getTitle(), col.getId());
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(boardId, "column.created", userId, user.getFullName(), dto);
+
         return dto;
     }
 
@@ -54,7 +60,12 @@ public class ColumnService {
         column.setTitle(req.getTitle());
 
         column = columnRepository.save(column);
+
+        // NEW: Broadcast real-time event
+        User user = userRepository.findById(userId).orElseThrow();
         ColumnDto dto = ColumnDto.from(column);
+        broadcastSafely(boardId, "column.updated", userId, user.getFullName(), dto);
+
         log.info("Column {} updated successfully", columnId);
         return dto;
     }
@@ -84,6 +95,13 @@ public class ColumnService {
         }
 
         log.info("Column {} deleted successfully", columnId);
+
+        // NEW: Broadcast real-time event
+        Map<String, Object> deletePayload = Map.of(
+            "columnId", columnId,
+            "title", title
+        );
+        broadcastSafely(boardId, "column.deleted", userId, user.getFullName(), deletePayload);
     }
 
     @Transactional
@@ -115,5 +133,22 @@ public class ColumnService {
         }
         columnRepository.saveAll(columns);
         log.info("Column {} moved to position {} successfully", columnId, newPosition);
+
+        // NEW: Broadcast real-time event
+        User user = userRepository.findById(userId).orElseThrow();
+        Map<String, Object> movePayload = Map.of(
+            "columnId", columnId,
+            "newPosition", newPosition
+        );
+        broadcastSafely(boardId, "column.moved", userId, user.getFullName(), movePayload);
+    }
+
+    // NEW: Safe WebSocket broadcast helper
+    private void broadcastSafely(Long boardId, String eventType, Long userId, String userName, Object payload) {
+        try {
+            webSocketNotificationService.broadcastBoardEvent(boardId, eventType, userId, userName, payload);
+        } catch (Exception e) {
+            log.warn("WebSocket broadcast failed for {} on board {}: {}", eventType, boardId, e.getMessage());
+        }
     }
 }

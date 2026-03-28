@@ -11,6 +11,10 @@ import Skeleton from '../components/common/Skeleton'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
 import toast from 'react-hot-toast'
+import useWebSocket from '../hooks/useWebSocket'
+import { useAuth } from '../context/AuthContext'
+
+
 
 const CardModal = lazy(() => import('../components/CardModal'))
 const InviteModal = lazy(() => import('../components/InviteModal'))
@@ -40,6 +44,64 @@ const BoardPage = () => {
   const navigate = useNavigate();
 
   const queryClient = useQueryClient()
+
+  const { user: currentUser } = useAuth()
+
+  // ===== REAL-TIME WEBSOCKET SYNC =====
+  const handleBoardEvent = (event) => {
+    // Get current user ID to check if event is from someone else
+    const myUserId = currentUser?.id
+
+    // Show toast only for events from OTHER users
+    if (event.userId && event.userId !== myUserId) {
+      const messages = {
+        'card.created': 'created a new card',
+        'card.updated': 'updated a card',
+        'card.moved': 'moved a card',
+        'card.deleted': 'deleted a card',
+        'card.archived': 'archived a card',
+        'column.created': 'added a new column',
+        'column.updated': 'renamed a column',
+        'column.deleted': 'deleted a column',
+        'column.moved': 'reordered columns',
+        'comment.added': 'added a comment',
+        'comment.deleted': 'deleted a comment',
+        'board.updated': 'updated the board',
+        'member.added': 'added a new member',
+      }
+      const icon = event.eventType?.startsWith('card') ? '📋'
+                 : event.eventType?.startsWith('column') ? '📊'
+                 : event.eventType?.startsWith('comment') ? '💬'
+                 : '🔔'
+
+      const message = messages[event.eventType] || 'made a change'
+      toast(`${event.userName || 'Someone'} ${message}`, {
+        icon,
+        duration: 3000,
+        style: { fontSize: '14px' },
+      })
+    }
+
+    // Invalidate React Query cache to refetch fresh data
+    const type = event.eventType || ''
+    if (type.startsWith('card') || type.startsWith('column') || type === 'board.updated') {
+      queryClient.invalidateQueries({ queryKey: ['board', boardId, 'columns'] })
+      queryClient.invalidateQueries({ queryKey: ['boards'] })
+    }
+    if (type.startsWith('comment')) {
+      queryClient.invalidateQueries({ queryKey: ['board', boardId, 'columns'] })
+      queryClient.invalidateQueries({ queryKey: ['comments'] })
+    }
+    if (type === 'activity.new') {
+      queryClient.invalidateQueries({ queryKey: ['activities', boardId] })
+    }
+    if (type === 'member.added') {
+      queryClient.invalidateQueries({ queryKey: ['boardMembers', boardId] })
+    }
+  }
+
+  useWebSocket(boardId, handleBoardEvent)
+
 
   const { data: boards } = useQuery({
     queryKey: ['boards'],

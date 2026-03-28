@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
@@ -23,6 +24,7 @@ public class CommentService {
     private final UserRepository userRepository;
     private final BoardService boardService;
     private final ActivityService activityService;
+    private final WebSocketNotificationService webSocketNotificationService; // NEW
 
     @Transactional
     public CommentDto addComment(Long cardId, CommentRequest req, Long userId) {
@@ -38,8 +40,14 @@ public class CommentService {
         comment = commentRepository.save(comment);
 
         activityService.log(board, user, "ADDED_COMMENT", "CARD", cardId);
+        CommentDto dto = CommentDto.from(comment);
         log.info("Comment {} added successfully to card {}", comment.getId(), cardId);
-        return CommentDto.from(comment);
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(board.getId(), "comment.added", userId, user.getFullName(),
+            Map.of("cardId", cardId, "comment", dto));
+
+        return dto;
     }
 
     public List<CommentDto> getComments(Long cardId) {
@@ -52,23 +60,39 @@ public class CommentService {
     public void deleteComment(Long boardId, Long cardId, Long commentId, Long userId) {
         log.info("Deleting comment {} for card {} on board {} by user {}", commentId, cardId, boardId, userId);
         boardService.checkAccess(boardId, userId);
-        
+
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
-        
+
         if (!comment.getCard().getId().equals(cardId)) {
             throw new RuntimeException("Comment does not belong to this card");
         }
 
         boolean isCommentAuthor = comment.getUser().getId().equals(userId);
         boolean isBoardOwner = boardService.isOwner(boardId, userId);
-        
+
         if (!isCommentAuthor && !isBoardOwner) {
             log.warn("User {} attempted to delete someone else's comment {}", userId, commentId);
             throw new RuntimeException("You can only delete your own comments");
         }
-        
+
+        // Get user name before deleting
+        User user = userRepository.findById(userId).orElseThrow();
+
         commentRepository.delete(comment);
         log.info("Comment {} deleted successfully by user {}", commentId, userId);
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(boardId, "comment.deleted", userId, user.getFullName(),
+            Map.of("cardId", cardId, "commentId", commentId));
+    }
+
+    // NEW: Safe WebSocket broadcast helper
+    private void broadcastSafely(Long boardId, String eventType, Long userId, String userName, Object payload) {
+        try {
+            webSocketNotificationService.broadcastBoardEvent(boardId, eventType, userId, userName, payload);
+        } catch (Exception e) {
+            log.warn("WebSocket broadcast failed for {} on board {}: {}", eventType, boardId, e.getMessage());
+        }
     }
 }
