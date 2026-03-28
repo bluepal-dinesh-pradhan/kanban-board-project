@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
@@ -26,6 +27,7 @@ public class CardService {
     private final BoardService boardService;
     private final ActivityService activityService;
     private final ReminderService reminderService;
+    private final WebSocketNotificationService webSocketNotificationService; // NEW
 
     @Transactional
     public CardDto create(Long boardId, CardRequest req, Long userId) {
@@ -59,13 +61,16 @@ public class CardService {
                 reminderService.createReminder(card, reminderType);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid reminder type '{}' for card {}", req.getReminderType(), card.getId());
-                // Invalid reminder type, ignore
             }
         }
         
         activityService.log(board, user, "CREATED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card '{}' created successfully with id {}", card.getTitle(), card.getId());
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(boardId, "card.created", userId, user.getFullName(), dto);
+
         return dto;
     }
 
@@ -104,16 +109,18 @@ public class CardService {
                 reminderService.createReminder(card, reminderType);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid reminder type '{}' for card {}", req.getReminderType(), cardId);
-                // Invalid reminder type, ignore
             }
         } else if (req.getDueDate() == null) {
-            // If due date is removed, delete existing reminders
             reminderService.deleteCardReminders(cardId);
         }
         
         activityService.log(board, user, "UPDATED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card {} updated successfully", cardId);
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(boardId, "card.updated", userId, user.getFullName(), dto);
+
         return dto;
     }
 
@@ -123,7 +130,9 @@ public class CardService {
         Card card = cardRepository.findById(cardId).orElseThrow();
         Long boardId = card.getColumn().getBoard().getId();
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
-        log.debug("Card {} current column {} position {}", cardId, card.getColumn().getId(), card.getPosition());
+
+        Long sourceColumnId = card.getColumn().getId();
+        log.debug("Card {} current column {} position {}", cardId, sourceColumnId, card.getPosition());
 
         BoardColumn sourceCol = card.getColumn();
         BoardColumn targetCol = columnRepository.findById(req.getTargetColumnId()).orElseThrow();
@@ -142,6 +151,16 @@ public class CardService {
         activityService.log(board, user, "MOVED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card {} moved successfully", cardId);
+
+        // NEW: Broadcast real-time event with move details
+        Map<String, Object> movePayload = Map.of(
+            "card", dto,
+            "sourceColumnId", sourceColumnId,
+            "targetColumnId", req.getTargetColumnId(),
+            "newPosition", req.getNewPosition()
+        );
+        broadcastSafely(boardId, "card.moved", userId, user.getFullName(), movePayload);
+
         return dto;
     }
 
@@ -171,6 +190,10 @@ public class CardService {
         activityService.log(board, user, "ARCHIVED_CARD", "CARD", card.getId());
         CardDto dto = CardDto.from(card);
         log.info("Card {} archived successfully", cardId);
+
+        // NEW: Broadcast real-time event
+        broadcastSafely(boardId, "card.archived", userId, user.getFullName(), dto);
+
         return dto;
     }
 
@@ -224,5 +247,24 @@ public class CardService {
         }
 
         log.info("Card {} deleted successfully", cardId);
+
+        // NEW: Broadcast real-time event
+        Map<String, Object> deletePayload = Map.of(
+            "cardId", cardId,
+            "columnId", columnId,
+            "title", title
+        );
+        broadcastSafely(boardId, "card.deleted", userId, user.getFullName(), deletePayload);
+    }
+
+    // =========================================================
+    // HELPER: Safe WebSocket broadcast (never breaks main flow)
+    // =========================================================
+    private void broadcastSafely(Long boardId, String eventType, Long userId, String userName, Object payload) {
+        try {
+            webSocketNotificationService.broadcastBoardEvent(boardId, eventType, userId, userName, payload);
+        } catch (Exception e) {
+            log.warn("WebSocket broadcast failed for {} on board {}: {}", eventType, boardId, e.getMessage());
+        }
     }
 }
