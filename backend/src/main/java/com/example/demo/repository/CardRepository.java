@@ -26,4 +26,6 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     void deleteByBoardId(@Param("boardId") Long boardId);
     
     List<Card> findByColumnBoardIdAndArchivedTrue(Long boardId);
+    
+    List<Card> findByColumnBoardIdAndArchivedFalse(Long boardId);
 }

@@ -29,6 +29,7 @@ export const boardAPI = {
   leaveBoard: (boardId) => api.post(`/boards/${boardId}/presence/leave`),
   heartbeat: (boardId) => api.post(`/boards/${boardId}/presence/heartbeat`),
   getPresence: (boardId) => api.get(`/boards/${boardId}/presence`),
+  getAnalytics: (boardId) => api.get(`/boards/${boardId}/analytics`),
   deleteBoard: (id) => api.delete(`/boards/${id}`),
 }
 

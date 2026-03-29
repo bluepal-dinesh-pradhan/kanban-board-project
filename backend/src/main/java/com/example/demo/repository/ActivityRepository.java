@@ -19,4 +19,6 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     @Transactional
     @Query("DELETE FROM Activity a WHERE a.board.id = :boardId")
     void deleteByBoardId(@Param("boardId") Long boardId);
+    
+    long countByBoardIdAndCreatedAtAfter(Long boardId, java.time.LocalDateTime after);
 }
