@@ -19,4 +19,6 @@ public interface BoardMemberRepository extends JpaRepository<BoardMember, Long> 
     @Transactional
     @Query("DELETE FROM BoardMember bm WHERE bm.board.id = :boardId")
     void deleteByBoardId(@Param("boardId") Long boardId);
+    
+    long countByBoardId(Long boardId);
 }

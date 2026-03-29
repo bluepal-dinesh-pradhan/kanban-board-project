@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare, FiArchive } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare, FiArchive, FiBarChart2 } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
 import ActivityFeed from '../components/ActivityFeed'
+import BoardAnalytics from '../components/BoardAnalytics'
 import Skeleton from '../components/common/Skeleton'
 import Navbar from '../components/Navbar'
 import Sidebar from '../components/Sidebar'
@@ -122,6 +123,7 @@ const BoardPage = () => {
   useWebSocket(boardId, handleBoardEvent)
 
   const [showArchivedPanel, setShowArchivedPanel] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState([])
 
   // Join board presence on mount, heartbeat every 30s, leave on unmount
@@ -695,6 +697,13 @@ const BoardPage = () => {
                   <FiArchive className="mr-2 h-4 w-4" />
                   Archived
                 </button>
+                <button
+                  onClick={() => setShowAnalytics(true)}
+                  className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
+                >
+                  <FiBarChart2 className="mr-2 h-4 w-4" />
+                  Analytics
+                </button>
                 {isOwner && (
                   <button
                     onClick={handleDeleteBoard}
@@ -1229,6 +1238,13 @@ const BoardPage = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {showAnalytics && (
+            <BoardAnalytics
+              boardId={boardId}
+              onClose={() => setShowAnalytics(false)}
+            />
           )}
 
           {/* Keyboard shortcuts hint */}
