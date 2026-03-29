@@ -31,7 +31,44 @@ const Toggle = ({ enabled, onChange, label, isLoading }) => (
   </div>
 )
 
-const PasswordInput = ({ label, value, onChange, placeholder, error }) => {
+const PasswordStrengthIndicator = ({ password }) => {
+  const getStrength = (p) => {
+    if (!p) return { label: '', color: 'bg-slate-200', width: '0%', text: '' }
+    if (p.length < 8) return { label: 'Weak', color: 'bg-rose-500', width: '33%', text: 'text-rose-600' }
+    
+    const hasUpper = /[A-Z]/.test(p)
+    const hasLower = /[a-z]/.test(p)
+    const hasNumber = /\d/.test(p)
+    const hasSpecial = /[@$!%*?&#]/.test(p)
+    
+    const criteriaCount = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+    
+    if (criteriaCount < 4) return { label: 'Good', color: 'bg-amber-500', width: '66%', text: 'text-amber-600' }
+    return { label: 'Strong', color: 'bg-emerald-500', width: '100%', text: 'text-emerald-600' }
+  }
+
+  const strength = getStrength(password)
+
+  if (!password) return null
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex justify-between items-center">
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${strength.text}`}>
+          Strength: {strength.label}
+        </span>
+      </div>
+      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${strength.color} transition-all duration-500 ease-out`} 
+          style={{ width: strength.width }}
+        />
+      </div>
+    </div>
+  )
+}
+
+const PasswordInput = ({ label, value, onChange, placeholder, error, children }) => {
   const [show, setShow] = useState(false)
   return (
     <div className="space-y-1">
@@ -54,6 +91,7 @@ const PasswordInput = ({ label, value, onChange, placeholder, error }) => {
           {show ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
         </button>
       </div>
+      {children}
       {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
     </div>
   )
@@ -128,8 +166,8 @@ const SettingsPage = () => {
     },
     onError: (error) => {
       const message = error.response?.data?.message || 'Failed to change password'
-      if (message.includes('current password')) {
-        toast.error('Current password is incorrect')
+      if (message.toLowerCase().includes('current password')) {
+        setPasswordErrors({ currentPassword: 'Current password is incorrect' })
       } else {
         toast.error(message)
       }
@@ -156,12 +194,25 @@ const SettingsPage = () => {
 
   const handlePasswordUpdate = () => {
     const errors = {}
-    if (!passwords.currentPassword) errors.currentPassword = 'Required'
-    if (!passwords.newPassword) errors.newPassword = 'Required'
-    else if (passwords.newPassword.length < 6) errors.newPassword = 'Minimum 6 characters'
+    const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+
+    if (!passwords.currentPassword) {
+      errors.currentPassword = 'Required'
+    }
+
+    if (!passwords.newPassword) {
+      errors.newPassword = 'Required'
+    } else if (passwords.newPassword === passwords.currentPassword) {
+      errors.newPassword = 'New password must be different from current password'
+    } else if (!passwordPattern.test(passwords.newPassword)) {
+      errors.newPassword = 'Password must be at least 8 characters with uppercase, lowercase, number, and special character'
+    }
     
-    if (!passwords.confirmPassword) errors.confirmPassword = 'Required'
-    else if (passwords.newPassword !== passwords.confirmPassword) errors.confirmPassword = 'Passwords do not match'
+    if (!passwords.confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password'
+    } else if (passwords.newPassword !== passwords.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match'
+    }
 
     if (Object.keys(errors).length > 0) {
       setPasswordErrors(errors)
@@ -302,7 +353,14 @@ const SettingsPage = () => {
                   <PasswordInput
                     label="Current Password"
                     value={passwords.currentPassword}
-                    onChange={(v) => setPasswords({...passwords, currentPassword: v})}
+                    onChange={(v) => {
+                      setPasswords({...passwords, currentPassword: v})
+                      if (passwordErrors.currentPassword) {
+                        const newErrors = { ...passwordErrors }
+                        delete newErrors.currentPassword
+                        setPasswordErrors(newErrors)
+                      }
+                    }}
                     placeholder="Enter current password"
                     error={passwordErrors.currentPassword}
                   />
@@ -310,14 +368,30 @@ const SettingsPage = () => {
                   <PasswordInput
                     label="New Password"
                     value={passwords.newPassword}
-                    onChange={(v) => setPasswords({...passwords, newPassword: v})}
-                    placeholder="Min 6 characters"
+                    onChange={(v) => {
+                      setPasswords({...passwords, newPassword: v})
+                      if (passwordErrors.newPassword) {
+                        const newErrors = { ...passwordErrors }
+                        delete newErrors.newPassword
+                        setPasswordErrors(newErrors)
+                      }
+                    }}
+                    placeholder="Min 8 characters + symbols"
                     error={passwordErrors.newPassword}
-                  />
+                  >
+                    <PasswordStrengthIndicator password={passwords.newPassword} />
+                  </PasswordInput>
                   <PasswordInput
                     label="Confirm New Password"
                     value={passwords.confirmPassword}
-                    onChange={(v) => setPasswords({...passwords, confirmPassword: v})}
+                    onChange={(v) => {
+                      setPasswords({...passwords, confirmPassword: v})
+                      if (passwordErrors.confirmPassword) {
+                        const newErrors = { ...passwordErrors }
+                        delete newErrors.confirmPassword
+                        setPasswordErrors(newErrors)
+                      }
+                    }}
                     placeholder="Re-type new password"
                     error={passwordErrors.confirmPassword}
                   />

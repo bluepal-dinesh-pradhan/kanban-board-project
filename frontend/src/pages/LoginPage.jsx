@@ -33,11 +33,12 @@ const LoginPage = () => {
 
   const validateForm = () => {
     const newErrors = {}
+    const emailRegex = /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/
     
     if (!formData.email) {
       newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Invalid email format'
     }
     
     if (!formData.password) {
@@ -57,7 +58,16 @@ const LoginPage = () => {
     try {
       await login(formData.email, formData.password)
     } catch (error) {
-      // Error is handled by the auth context and axios interceptor
+      const status = error.response?.status
+      const message = error.response?.data?.message
+      
+      if (status === 401) {
+        setErrors({ form: 'Invalid email or password' })
+      } else if (message) {
+        setErrors({ form: message })
+      } else {
+        setErrors({ form: 'An unexpected error occurred. Please try again.' })
+      }
     } finally {
       setLoading(false)
     }
@@ -134,6 +144,12 @@ const LoginPage = () => {
           {isInvited && (
             <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
               You&apos;ve been invited to a board! Log in to access it.
+            </div>
+          )}
+
+          {errors.form && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {errors.form}
             </div>
           )}
 

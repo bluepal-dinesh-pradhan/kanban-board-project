@@ -99,6 +99,19 @@ public class UserController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Current password is incorrect"));
         }
 
+        // 1. New password must NOT be same as current password
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            log.error("New password same as current for user: {}", userPrincipal.getEmail());
+            return ResponseEntity.badRequest().body(ApiResponse.error("New password must be different from current password"));
+        }
+
+        // 2. Strong password validation
+        String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
+        if (!request.getNewPassword().matches(passwordPattern)) {
+            log.error("New password does not meet strength requirements for user: {}", userPrincipal.getEmail());
+            return ResponseEntity.badRequest().body(ApiResponse.error("Password must be at least 8 characters with uppercase, lowercase, number, and special character"));
+        }
+
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
