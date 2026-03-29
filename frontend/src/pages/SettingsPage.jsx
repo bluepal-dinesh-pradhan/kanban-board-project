@@ -60,7 +60,7 @@ const PasswordInput = ({ label, value, onChange, placeholder, error }) => {
 }
 
 const SettingsPage = () => {
-  const { user: authUser } = useAuth()
+  const { user: authUser, setUser } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -88,6 +88,18 @@ const SettingsPage = () => {
   const updateProfileMutation = useMutation({
     mutationFn: (data) => userAPI.updateProfile(data),
     onSuccess: () => {
+      // Update localStorage with new user data
+      const currentUser = JSON.parse(localStorage.getItem('user'))
+      if (currentUser) {
+        currentUser.fullName = fullName
+        localStorage.setItem('user', JSON.stringify(currentUser))
+        
+        // Update AuthContext state
+        if (setUser) {
+          setUser(currentUser)
+        }
+      }
+
       queryClient.invalidateQueries(['user', 'profile'])
       toast.success('Profile updated successfully')
     },
