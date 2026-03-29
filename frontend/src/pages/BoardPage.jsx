@@ -123,6 +123,7 @@ const BoardPage = () => {
   useWebSocket(boardId, handleBoardEvent)
 
   const [showArchivedPanel, setShowArchivedPanel] = useState(false)
+  const [showMembersPanel, setShowMembersPanel] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState([])
 
@@ -300,6 +301,32 @@ const BoardPage = () => {
   const [selectedMembers, setSelectedMembers] = useState([])
   const [selectedPriorities, setSelectedPriorities] = useState([])
 
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberUserId) => {
+      return boardAPI.removeMember(boardId, memberUserId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['boardMembers', boardId])
+      toast.success('Member removed')
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to remove member')
+    }
+  })
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: async (invitationId) => {
+      return boardAPI.cancelInvitation(boardId, invitationId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['boardMembers', boardId])
+      toast.success('Invitation cancelled')
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to cancel invitation')
+    }
+  })
+
   const labelKey = (label) => `${label.color || ''}|${label.text || ''}`
 
   const availableLabels = useMemo(() => {
@@ -467,7 +494,35 @@ const BoardPage = () => {
     if (isViewer) return
     if (!result.destination) return
 
-    const { source, destination, draggableId } = result
+    const { source, destination, draggableId, type } = result
+
+    // COLUMN DRAG
+    if (type === 'COLUMN') {
+      if (source.index === destination.index) return
+
+      const columnId = parseInt(draggableId.replace('column-', ''))
+      
+      // Optimistic update
+      const currentData = queryClient.getQueryData(['board', boardId, 'columns'])
+      if (currentData) {
+        const newData = [...currentData]
+        const [movedCol] = newData.splice(source.index, 1)
+        newData.splice(destination.index, 0, movedCol)
+        queryClient.setQueryData(['board', boardId, 'columns'], newData)
+      }
+
+      columnAPI.moveColumn(columnId, { newPosition: destination.index })
+        .then(() => {
+          queryClient.invalidateQueries(['board', boardId, 'columns'])
+        })
+        .catch(err => {
+          queryClient.invalidateQueries(['board', boardId, 'columns'])
+          toast.error('Failed to reorder columns')
+        })
+      return
+    }
+
+    // CARD DRAG (default)
     const cardId = parseInt(draggableId.replace('card-', ''))
 
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
@@ -680,6 +735,13 @@ const BoardPage = () => {
                   </button>
                 )}
                 <button
+                  onClick={() => setShowMembersPanel(true)}
+                  className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 transition-all duration-200 hover:scale-105"
+                >
+                  <FiUsers className="mr-2 h-4 w-4" />
+                  Members
+                </button>
+                <button
                   onClick={() => setShowFilterPanel(true)}
                   className={`inline-flex items-center px-3 py-2 rounded-lg border transition-all duration-200 ${
                     activeFilterCount > 0
@@ -752,13 +814,32 @@ const BoardPage = () => {
                 handleDragEnd(result)
               }}
             >
-              <div className="flex space-x-6 min-w-max pb-6">
-                {columns?.map((column) => {
-                  const visibleCardCount = column.cards.filter(matchesFilters).length
-                  const isRenaming = renamingColumnId === column.id
-                  return (
-                    <div key={column.id} className="w-80 bg-[#f4f5f7] rounded-[12px] flex-shrink-0 flex flex-col max-h-full">
-                      <div className="p-3 pb-2 border-b-0">
+              <Droppable droppableId="board-columns" direction="horizontal" type="COLUMN">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="flex space-x-6 min-w-max pb-6"
+                  >
+                    {columns?.map((column, index) => {
+                      const visibleCardCount = column.cards.filter(matchesFilters).length
+                      const isRenaming = renamingColumnId === column.id
+                      return (
+                        <Draggable
+                          key={column.id}
+                          draggableId={`column-${column.id}`}
+                          index={index}
+                          isDragDisabled={!canEdit}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`w-80 bg-[#f4f5f7] dark:bg-gray-800 rounded-[12px] flex-shrink-0 flex flex-col max-h-full ${
+                                snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500/50' : ''
+                              }`}
+                            >
+                              <div {...provided.dragHandleProps} className="p-3 pb-2 border-b-0 cursor-grab active:cursor-grabbing">
                         <div className="flex justify-between items-center group/col">
                           {isRenaming ? (
                             <input
@@ -811,7 +892,7 @@ const BoardPage = () => {
                       </div>
 
                       <div className="px-2 pb-2 flex-1 overflow-y-auto scrollbar-thin">
-                        <Droppable droppableId={`col-${column.id}`}>
+                        <Droppable droppableId={`col-${column.id}`} type="CARD">
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
@@ -988,13 +1069,16 @@ const BoardPage = () => {
                             Add a card
                           </button>
                         ) : null}
-                      </div>
-                    </div>
-                  )
-                })}
+                          </div>
+                        </div>
+                      )}
+                      </Draggable>
+                    )
+                  })}
+                  {provided.placeholder}
 
-                {/* Add Column */}
-                <div className="w-80 flex-shrink-0">
+                    {/* Add Column */}
+                    <div className="w-80 flex-shrink-0">
                   {canEdit && (
                     showCreateColumn ? (
                       <div className="bg-white/90 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/30">
@@ -1038,11 +1122,149 @@ const BoardPage = () => {
                       </button>
                     )
                   )}
-                </div>
-              </div>
+                    </div>
+                  </div>
+                )}
+              </Droppable>
             </DragDropContext>
           </div>
 
+          {showMembersPanel && (
+            <div className="fixed inset-0 z-50">
+              <div
+                className="absolute inset-0 bg-black/30"
+                onClick={() => setShowMembersPanel(false)}
+              ></div>
+              <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white dark:bg-gray-900 shadow-[-4px_0_20px_rgba(0,0,0,0.1)] border-l border-gray-100 dark:border-gray-800 flex flex-col animate-slide-in-right">
+                <div className="flex items-center justify-between px-5 p-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
+                  <div className="flex items-center space-x-2.5">
+                    <FiUsers className="w-4 h-4 text-blue-600" />
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Members</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowMembersPanel(false)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <FiX className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-5 py-6 space-y-8 scrollbar-thin">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
+                        Board Members ({membersData?.members?.length || 0})
+                      </h4>
+                      {isOwner && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          Hover on a member to remove them
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-4">
+                      {membersData?.members?.map((member) => {
+                        const isOnline = onlineUsers.some(u => u.id === member.user.id)
+                        return (
+                          <div key={member.id} className="flex items-center justify-between group">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold shadow-md">
+                                  {member.user.fullName.charAt(0)}
+                                </div>
+                                {isOnline && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                    {member.user.fullName}
+                                    {member.user.id === currentUser?.id && " (You)"}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter ${
+                                    member.role === 'OWNER' 
+                                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' 
+                                      : member.role === 'EDITOR'
+                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                  }`}>
+                                    {member.role === 'OWNER' ? 'Owner' : member.role === 'EDITOR' ? 'Editor' : 'Viewer'}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-400 truncate">{member.user.email}</div>
+                              </div>
+                            </div>
+                            {isOwner && member.user.id !== currentUser?.id && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to remove ${member.user.fullName} from this board?`)) {
+                                    removeMemberMutation.mutate(member.user.id)
+                                  }
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {membersData?.pendingInvitations?.length > 0 && (
+                    <div>
+                      <h4 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px] mb-1">
+                        Pending Invitations ({membersData.pendingInvitations.length})
+                      </h4>
+                      {isOwner && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                          Hover to cancel invitation
+                        </p>
+                      )}
+                      <div className="space-y-4">
+                        {membersData.pendingInvitations.map((invite) => (
+                          <div key={invite.id} className="flex items-center justify-between group">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center font-bold">
+                                {invite.email.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-gray-500 dark:text-gray-400 truncate">{invite.email}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-bold uppercase">
+                                    {invite.role}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Pending Acceptance</div>
+                              </div>
+                            </div>
+                            {isOwner && (
+                              <button
+                                onClick={() => cancelInvitationMutation.mutate(invite.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="sticky bottom-0 border-t border-gray-100 dark:border-gray-800 px-5 py-4 flex justify-end items-center bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-md">
+                  <button
+                    onClick={() => setShowMembersPanel(false)}
+                    className="px-6 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md shadow-blue-200 dark:shadow-none transition-all hover:-translate-y-0.5"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           {showFilterPanel && (
             <div className="fixed inset-0 z-50">
               <div
