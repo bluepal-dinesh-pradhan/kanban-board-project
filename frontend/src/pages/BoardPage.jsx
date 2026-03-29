@@ -298,6 +298,7 @@ const BoardPage = () => {
   const [selectedLabels, setSelectedLabels] = useState([])
   const [selectedDueDates, setSelectedDueDates] = useState([])
   const [selectedMembers, setSelectedMembers] = useState([])
+  const [selectedPriorities, setSelectedPriorities] = useState([])
 
   const labelKey = (label) => `${label.color || ''}|${label.text || ''}`
 
@@ -320,7 +321,8 @@ const BoardPage = () => {
     filterKeyword.trim().length > 0,
     selectedLabels.length > 0,
     selectedDueDates.length > 0,
-    selectedMembers.length > 0
+    selectedMembers.length > 0,
+    selectedPriorities.length > 0
   ].filter(Boolean).length
 
   const matchesDueFilter = (card) => {
@@ -347,13 +349,21 @@ const BoardPage = () => {
 
   const matchesMemberFilter = (card) => {
     if (selectedMembers.length === 0) return true
-    if (!card.members || card.members.length === 0) return false
-    return card.members.some((member) => selectedMembers.includes(member.id))
+    // Check new assignee field
+    if (card.assigneeId && selectedMembers.includes(card.assigneeId)) return true
+    // Check old members field
+    if (card.members?.some((member) => selectedMembers.includes(member.id))) return true
+    return false
   }
 
   const matchesLabelFilter = (card) => {
     if (selectedLabels.length === 0) return true
     return card.labels?.some((label) => selectedLabels.includes(labelKey(label)))
+  }
+
+  const matchesPriorityFilter = (card) => {
+    if (selectedPriorities.length === 0) return true
+    return selectedPriorities.includes(card.priority)
   }
 
   const matchesKeywordFilter = (card) => {
@@ -368,7 +378,8 @@ const BoardPage = () => {
       matchesKeywordFilter(card) &&
       matchesLabelFilter(card) &&
       matchesDueFilter(card) &&
-      matchesMemberFilter(card)
+      matchesMemberFilter(card) &&
+      matchesPriorityFilter(card)
     )
   }
 
@@ -514,6 +525,7 @@ const BoardPage = () => {
     setSelectedLabels([])
     setSelectedDueDates([])
     setSelectedMembers([])
+    setSelectedPriorities([])
   }
 
   const toggleFilterValue = (value, setter) => {
@@ -1100,6 +1112,34 @@ const BoardPage = () => {
                     </div>
                   </div>
 
+                  {/* Priority Section */}
+                  <div className="space-y-4">
+                    <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
+                      Priority
+                    </div>
+                    <div className="space-y-2.5 text-sm text-gray-700">
+                      {[
+                        { value: 'URGENT', label: 'Urgent', color: '#dc2626' },
+                        { value: 'HIGH', label: 'High', color: '#f97316' },
+                        { value: 'MEDIUM', label: 'Medium', color: '#eab308' },
+                        { value: 'LOW', label: 'Low', color: '#3b82f6' },
+                      ].map((item) => (
+                        <label key={item.value} className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={selectedPriorities.includes(item.value)}
+                            onChange={() => toggleFilterValue(item.value, setSelectedPriorities)}
+                            className="h-4 w-4 text-blue-600 rounded-[4px] border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                          />
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="group-hover:text-gray-900 transition-colors">{item.label}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Due Date Section */}
                   <div className="space-y-4">
                     <div className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">
@@ -1136,8 +1176,8 @@ const BoardPage = () => {
                         <label key={member.id} className="flex items-center gap-3 cursor-pointer group">
                           <input
                             type="checkbox"
-                            checked={selectedMembers.includes(member.id)}
-                            onChange={() => toggleFilterValue(member.id, setSelectedMembers)}
+                            checked={selectedMembers.includes(member.user.id)}
+                            onChange={() => toggleFilterValue(member.user.id, setSelectedMembers)}
                             className="h-4 w-4 text-blue-600 rounded-[4px] border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600"
                           />
                           <span className="group-hover:text-gray-900 transition-colors">{member.user.fullName}</span>
