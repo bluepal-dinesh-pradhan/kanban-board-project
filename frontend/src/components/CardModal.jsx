@@ -757,30 +757,23 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
                   <p className="text-xs text-gray-500 font-medium">Keep your team updated on the progress</p>
                 </header>
                 
-                {!isViewer ? (
-                  <form onSubmit={handleAddComment} className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-100 dark:shadow-none focus-within:ring-2 focus-within:ring-blue-500 transition-all">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Share your thoughts..."
-                      className="w-full px-4 py-3 bg-transparent outline-none resize-none min-h-[100px] text-[15px] dark:text-white"
-                    />
-                    <div className="flex justify-end pt-3 border-t dark:border-gray-700 mt-2">
-                      <button
-                        type="submit"
-                        disabled={!newComment.trim() || addCommentMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
-                      >
-                        {addCommentMutation.isPending ? 'Sending...' : 'Post Comment'}
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl text-sm text-slate-500 flex items-center">
-                    <FiMessageSquare className="mr-2 h-5 w-5 text-slate-400" />
-                    Viewing discussion as guest.
+                <form onSubmit={handleAddComment} className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-100 dark:shadow-none focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Share your thoughts..."
+                    className="w-full px-4 py-3 bg-transparent outline-none resize-none min-h-[100px] text-[15px] dark:text-white"
+                  />
+                  <div className="flex justify-end pt-3 border-t dark:border-gray-700 mt-2">
+                    <button
+                      type="submit"
+                      disabled={!newComment.trim() || addCommentMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                    >
+                      {addCommentMutation.isPending ? 'Sending...' : 'Post Comment'}
+                    </button>
                   </div>
-                )}
+                </form>
 
                 <div className="space-y-6">
                   {comments?.map((comment) => (
@@ -976,29 +969,31 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
             </div>
 
             {/* Actions */}
-            <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-              <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Card Control</h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => duplicateCardMutation.mutate()}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"
-                >
-                  <FiCopy className="w-4 h-4" /> Duplicate
-                </button>
-                <button
-                  onClick={() => archiveCardMutation.mutate()}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 hover:text-amber-600 rounded-xl transition-all"
-                >
-                  <FiCopy className="w-4 h-4" /> Archive
-                </button>
-                <button
-                  onClick={handleDeleteCard}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
-                >
-                  <FiTrash2 className="w-4 h-4" /> Delete Card
-                </button>
+            {canEdit && !isViewer && (
+              <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
+                <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">Card Control</h4>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => duplicateCardMutation.mutate()}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all"
+                  >
+                    <FiCopy className="w-4 h-4" /> Duplicate
+                  </button>
+                  <button
+                    onClick={() => archiveCardMutation.mutate()}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/10 hover:text-amber-600 rounded-xl transition-all"
+                  >
+                    <FiCopy className="w-4 h-4" /> Archive
+                  </button>
+                  <button
+                    onClick={handleDeleteCard}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
+                  >
+                    <FiTrash2 className="w-4 h-4" /> Delete Card
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
