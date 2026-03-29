@@ -1,17 +1,31 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.*;
-import com.example.demo.entity.*;
-import com.example.demo.repository.*;
-import com.example.demo.security.JwtService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.*;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
-import java.util.List;
+
+import com.example.demo.dto.AuthRequest;
+import com.example.demo.dto.AuthResponse;
+import com.example.demo.dto.RefreshTokenRequest;
+import com.example.demo.dto.RegisterRequest;
+import com.example.demo.dto.UserDto;
+import com.example.demo.entity.BoardMember;
+import com.example.demo.entity.Invitation;
+import com.example.demo.entity.User;
+import com.example.demo.repository.BoardMemberRepository;
+import com.example.demo.repository.InvitationRepository;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.security.JwtService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service @RequiredArgsConstructor
 @Slf4j
@@ -27,9 +41,28 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest req) {
         log.info("Registering user {}", req.getEmail());
+        
+        // Validate name is not empty
+        if (req.getFullName() == null || req.getFullName().trim().isEmpty()) {
+            throw new RuntimeException("Full name is required");
+        }
+
+        // Validate email format
+        String emailPattern = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+        if (req.getEmail() == null || !req.getEmail().matches(emailPattern)) {
+            throw new RuntimeException("Valid email is required");
+        }
+
+        // Check if email already registered
         if (userRepository.existsByEmail(req.getEmail())) {
             log.warn("Registration attempt with existing email {}", req.getEmail());
-            throw new RuntimeException("Email already registered");
+            throw new RuntimeException("Email is already registered");
+        }
+
+        // Validate password strength
+        String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
+        if (req.getPassword() == null || !req.getPassword().matches(passwordPattern)) {
+            throw new RuntimeException("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
         }
         User user = User.builder()
                 .email(req.getEmail())
@@ -67,13 +100,22 @@ public class AuthService {
 
     public AuthResponse login(AuthRequest req) {
         log.info("Login attempt for {}", req.getEmail());
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+        } catch (BadCredentialsException e) {
+            log.warn("Login failed: invalid credentials for {}", req.getEmail());
+            throw e;
+        } catch (AuthenticationException e) {
+            log.warn("Login failed for {}: {}", req.getEmail(), e.getMessage());
+            throw new RuntimeException("Invalid email or password");
+        }
+        
         log.debug("Authentication succeeded for {}", req.getEmail());
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> {
                     log.warn("Login failed: user not found for {}", req.getEmail());
-                    return new RuntimeException("User not found");
+                    return new RuntimeException("Invalid email or password");
                 });
         AuthResponse response = buildAuthResponse(user);
         log.info("Login successful for user {}", user.getId());

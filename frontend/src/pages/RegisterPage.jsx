@@ -69,39 +69,68 @@ const RegisterPage = () => {
   })()
 
   const getPasswordStrength = (password) => {
-    if (password.length < 6) return { strength: 'weak', color: 'bg-red-500', text: 'Weak' }
-    if (password.length < 8) return { strength: 'medium', color: 'bg-yellow-500', text: 'Medium' }
-    if (password.match(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)) {
+    if (!password) return { strength: '', color: 'bg-slate-200', text: '' }
+    if (password.length < 8) return { strength: 'weak', color: 'bg-red-500', text: 'Weak' }
+    
+    const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+    if (strongRegex.test(password)) {
       return { strength: 'strong', color: 'bg-green-500', text: 'Strong' }
     }
-    return { strength: 'medium', color: 'bg-yellow-500', text: 'Medium' }
+    
+    // Check if it meets most requirements (at least 3 of 4)
+    const hasUpper = /[A-Z]/.test(password)
+    const hasLower = /[a-z]/.test(password)
+    const hasNumber = /\d/.test(password)
+    const hasSpecial = /[@$!%*?&#]/.test(password)
+    const count = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+    
+    if (count >= 3) {
+      return { strength: 'good', color: 'bg-yellow-500', text: 'Good' }
+    }
+    
+    return { strength: 'weak', color: 'bg-red-500', text: 'Weak' }
   }
 
   const validateForm = () => {
     const newErrors = {}
     
+    // Email validation regex (same as used in previous validation)
+    const emailRegex = /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/
+    // Password validation regex
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
+
+    // Name validation
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required'
+    } else if (formData.fullName.trim().length < 2) {
+      newErrors.fullName = 'Name must be at least 2 characters'
+    } else if (formData.fullName.trim().length > 50) {
+      newErrors.fullName = 'Name cannot exceed 50 characters'
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.fullName)) {
+      newErrors.fullName = 'Name can only contain letters and spaces'
     }
     
+    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email'
     }
     
+    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+    } else if (!passwordRegex.test(formData.password)) {
+      newErrors.password = 'Password must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&#)'
     }
     
+    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password'
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
     }
-
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -140,12 +169,14 @@ const RegisterPage = () => {
     formData.confirmPassword.length > 0 &&
     formData.password !== formData.confirmPassword
   const canSubmit = useMemo(() => {
+    const emailRegex = /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/
     return (
-      formData.fullName.trim().length > 0 &&
-      formData.email.trim().length > 0 &&
-      /\S+@\S+\.\S+/.test(formData.email) &&
-      formData.password.length >= 6 &&
-      formData.confirmPassword.length >= 6 &&
+      formData.fullName.trim().length >= 2 &&
+      formData.fullName.trim().length <= 50 &&
+      /^[a-zA-Z\s]+$/.test(formData.fullName) &&
+      emailRegex.test(formData.email) &&
+      passwordRegex.test(formData.password) &&
       formData.password === formData.confirmPassword &&
       !loading
     )
@@ -338,7 +369,7 @@ const RegisterPage = () => {
                               width:
                                 passwordStrength.strength === 'weak'
                                   ? '33%'
-                                  : passwordStrength.strength === 'medium'
+                                  : passwordStrength.strength === 'good'
                                     ? '66%'
                                     : '100%',
                             }}
@@ -410,7 +441,7 @@ const RegisterPage = () => {
 
                 <button
                   type="submit"
-                  disabled={!canSubmit}
+                  disabled={loading}
                   className="
                     group relative w-full flex justify-center py-3 px-4 h-11
                     border border-transparent text-sm font-semibold rounded-lg text-white
