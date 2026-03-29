@@ -914,7 +914,7 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
                     </label>
                     <div className="flex flex-col gap-2">
                         <input
-                            type="datetime-local"
+                            type="date"
                             value={dueDateDraft}
                             onChange={handleDueDateChange}
                             disabled={!canEdit}
