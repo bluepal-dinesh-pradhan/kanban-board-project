@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare, FiArchive, FiBarChart2 } from 'react-icons/fi'
+import { FiPlus, FiUsers, FiActivity, FiMoreHorizontal, FiCalendar, FiMessageSquare, FiX, FiStar, FiFilter, FiSearch, FiCheckSquare, FiArchive, FiBarChart2, FiPaperclip } from 'react-icons/fi'
 import { boardAPI, columnAPI, cardAPI } from '../api/endpoints'
 import { getBoardGradient } from '../utils/colors'
 import { timeAgo } from '../utils/timeAgo'
@@ -892,6 +892,12 @@ const BoardPage = () => {
                                                 <div className="flex items-center space-x-1 text-gray-400 font-medium">
                                                   <FiMessageSquare className="w-3.5 h-3.5" />
                                                   <span className="text-[11px]">{card.commentCount}</span>
+                                                </div>
+                                              )}
+                                              {card.attachmentCount > 0 && (
+                                                <div className="flex items-center space-x-1 text-gray-400 font-medium">
+                                                  <FiPaperclip className="w-3.5 h-3.5" />
+                                                  <span className="text-[11px]">{card.attachmentCount}</span>
                                                 </div>
                                               )}
                                             </div>

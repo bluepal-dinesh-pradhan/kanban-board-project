@@ -38,6 +38,9 @@ public class CardDto {
     @Schema(description = "Completed checklist items.")
     private int checklistCompleted;
 
+    @Schema(description = "Number of attachments on the card.")
+    private int attachmentCount;
+
     public static CardDto from(Card c) {
         List<LabelDto> labels = c.getLabels().stream()
                 .map(l -> new LabelDto(l.getId(), l.getColor(), l.getText()))
@@ -76,6 +79,11 @@ public class CardDto {
             dto.setChecklistCompleted(
                 (int) c.getChecklists().stream().filter(cl -> cl.isCompleted()).count()
             );
+        }
+
+        // Attachment count
+        if (c.getAttachments() != null) {
+            dto.setAttachmentCount(c.getAttachments().size());
         }
 
         return dto;
