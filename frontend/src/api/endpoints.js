@@ -68,6 +68,16 @@ export const cardAPI = {
   getComments: (cardId, paramsOrPage, size) => api.get(`/cards/${cardId}/comments`, { params: buildParams(paramsOrPage, size) }),
   addComment: (cardId, commentData) => api.post(`/cards/${cardId}/comments`, commentData),
   deleteComment: (boardId, cardId, commentId) => api.delete(`/cards/boards/${boardId}/cards/${cardId}/comments/${commentId}`),
+  getAttachments: (cardId) => api.get(`/cards/${cardId}/attachments`),
+  uploadAttachment: (cardId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/cards/${cardId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  deleteAttachment: (attachmentId) => api.delete(`/attachments/${attachmentId}`),
+  downloadAttachment: (attachmentId) => `${api.defaults.baseURL}/attachments/${attachmentId}/download`,
 }
 
 // User endpoints

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser, FiCheckSquare, FiCopy } from 'react-icons/fi'
+import { FiX, FiCalendar, FiTag, FiMessageSquare, FiSave, FiList, FiClock, FiAlignLeft, FiTrash2, FiEdit3, FiUser, FiCheckSquare, FiCopy, FiPaperclip, FiDownload } from 'react-icons/fi'
 import { cardAPI, boardAPI } from '../api/endpoints'
+import api from '../api/axios'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import RichTextEditor from './RichTextEditor'
@@ -138,6 +139,67 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
     }
   })
 
+  const fileInputRef = useState(null)
+  const { data: attachments } = useQuery({
+    queryKey: ['card', cardId, 'attachments'],
+    enabled: Boolean(cardId),
+    queryFn: async () => {
+      const response = await cardAPI.getAttachments(cardId)
+      return response.data.data
+    }
+  })
+  const uploadMutation = useMutation({
+    mutationFn: async (file) => {
+      const response = await cardAPI.uploadAttachment(cardId, file)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'attachments'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('File uploaded!', { id: 'file-uploaded' })
+    },
+    onError: (error) => {
+      toast.error(error?.response?.data?.message || 'Failed to upload file')
+    }
+  })
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId) => {
+      const response = await cardAPI.deleteAttachment(attachmentId)
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['card', cardId, 'attachments'])
+      queryClient.invalidateQueries(['board', boardId, 'columns'])
+      toast.success('Attachment deleted', { id: 'attachment-deleted' })
+    }
+  })
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be under 10MB')
+        return
+      }
+      uploadMutation.mutate(file)
+    }
+    e.target.value = '' // reset input
+  }
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 B'
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+  const getFileIcon = (fileType) => {
+    if (!fileType) return '📄'
+    if (fileType.startsWith('image/')) return '🖼️'
+    if (fileType.includes('pdf')) return '📕'
+    if (fileType.includes('word') || fileType.includes('document')) return '📘'
+    if (fileType.includes('sheet') || fileType.includes('excel')) return '📗'
+    if (fileType.includes('zip') || fileType.includes('archive')) return '📦'
+    if (fileType.includes('text')) return '📝'
+    return '📄'
+  }
   const duplicateCardMutation = useMutation({
     mutationFn: async () => {
       const response = await cardAPI.duplicateCard(cardId)
@@ -586,6 +648,94 @@ const CardModal = ({ cardId, boardId, onClose, isOwner = false, isEditor = false
                       </button>
                     </form>
                   )}
+                </div>
+              </div>
+
+              {/* Attachments Section */}
+              <div className="flex items-start gap-3">
+                <FiPaperclip className="h-6 w-6 text-gray-600 mt-1 flex-shrink-0" />
+                <div className="flex-1 w-full">
+                  <div className="flex items-center justify-between mb-3 mt-1">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Attachments
+                      {attachments?.length > 0 && (
+                        <span className="ml-2 text-sm font-normal text-gray-500">
+                          ({attachments.length})
+                        </span>
+                      )}
+                    </h3>
+                    {canEdit && (
+                      <label className="cursor-pointer px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors">
+                        {uploadMutation.isPending ? 'Uploading...' : 'Add file'}
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          disabled={uploadMutation.isPending}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {(!attachments || attachments.length === 0) && (
+                      <p className="text-sm text-gray-400 italic">No attachments yet</p>
+                    )}
+                    {attachments?.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 group hover:border-gray-300 transition-colors"
+                      >
+                        <span className="text-2xl">{getFileIcon(att.fileType)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {att.fileName}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatFileSize(att.fileSize)} • {att.uploadedByName} • {new Date(att.uploadedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await api.get(`/attachments/${att.id}/download`, {
+                                  responseType: 'blob'
+                                })
+                                const url = window.URL.createObjectURL(new Blob([response.data]))
+                                const link = document.createElement('a')
+                                link.href = url
+                                link.setAttribute('download', att.fileName)
+                                document.body.appendChild(link)
+                                link.click()
+                                link.remove()
+                                window.URL.revokeObjectURL(url)
+                              } catch (e) {
+                                toast.error('Failed to download file')
+                              }
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                            title="Download"
+                          >
+                            <FiDownload className="w-4 h-4" />
+                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Delete this attachment?')) {
+                                  deleteAttachmentMutation.mutate(att.id)
+                                }
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                              title="Delete"
+                            >
+                              <FiX className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 

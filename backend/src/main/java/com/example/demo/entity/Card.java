@@ -70,6 +70,11 @@ public class Card {
     @OrderBy("position ASC")
     @Builder.Default
     private List<Checklist> checklists = new ArrayList<>();
+
+    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("uploadedAt DESC")
+    @Builder.Default
+    private List<Attachment> attachments = new ArrayList<>();
     
     @PrePersist
     protected void onCreate() {
