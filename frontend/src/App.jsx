@@ -11,6 +11,8 @@ const BoardPage = lazy(() => import('./pages/BoardPage'))
 const InvitePage = lazy(() => import('./pages/InvitePage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 
 // Private Route component
 const PrivateRoute = ({ children }) => {
@@ -86,6 +88,22 @@ function App() {
           element={
             <PublicRoute>
               <LandingPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/reset-password" 
+          element={
+            <PublicRoute>
+              <ResetPasswordPage />
             </PublicRoute>
           } 
         />

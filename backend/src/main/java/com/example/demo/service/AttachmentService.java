@@ -33,7 +33,7 @@ public class AttachmentService {
     private final WebSocketNotificationService webSocketNotificationService;
 
     private static final String UPLOAD_DIR = "uploads";
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10MB
 
     @Transactional
     public AttachmentDto upload(Long cardId, MultipartFile file, Long userId) throws IOException {
