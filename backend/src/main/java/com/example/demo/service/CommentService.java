@@ -10,10 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+
 
 @Service @RequiredArgsConstructor
 @Slf4j
@@ -53,7 +56,7 @@ public class CommentService {
     public List<CommentDto> getComments(Long cardId) {
         log.info("Fetching comments for card {}", cardId);
         Card card = cardRepository.findById(cardId).orElseThrow();
-        return card.getComments().stream().map(CommentDto::from).collect(Collectors.toList());
+        return card.getComments().stream().map(CommentDto::from).toList();
     }
 
     @Transactional
@@ -62,10 +65,10 @@ public class CommentService {
         boardService.checkAccess(boardId, userId);
 
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
 
         if (!comment.getCard().getId().equals(cardId)) {
-            throw new RuntimeException("Comment does not belong to this card");
+            throw new BadRequestException("Comment does not belong to this card");
         }
 
         boolean isCommentAuthor = comment.getUser().getId().equals(userId);
@@ -73,7 +76,7 @@ public class CommentService {
 
         if (!isCommentAuthor && !isBoardOwner) {
             log.warn("User {} attempted to delete someone else's comment {}", userId, commentId);
-            throw new RuntimeException("You can only delete your own comments");
+            throw new BadRequestException("You can only delete your own comments");
         }
 
         // Get user name before deleting

@@ -11,10 +11,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Service @RequiredArgsConstructor
@@ -39,10 +41,20 @@ public class BoardService {
     @Value("${app.invitation.expires-days:14}")
     private long invitationExpiresDays;
 
+    private static final String TO_DO = "To Do";
+    private static final String IN_PROGRESS = "In Progress";
+    private static final String DONE = "Done";
+
+    private static final String BOARD_NOT_FOUND = "Board not found";
+    private static final String USER_NOT_FOUND = "User not found";
+    private static final String ACCESS_DENIED = "Access denied";
+    private static final String MEMBER_NOT_FOUND = "Member not found";
+
     @Transactional
     public BoardDto create(BoardRequest req, Long userId) {
         log.info("Creating board '{}' for user {}", req.getTitle(), userId);
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         Board board = Board.builder()
                 .title(req.getTitle())
                 .owner(user)
@@ -55,7 +67,7 @@ public class BoardService {
                 .board(board).user(user).role(BoardMember.Role.OWNER).build();
         boardMemberRepository.save(member);
 
-        String[] defaults = {"To Do", "In Progress", "Done"};
+        String[] defaults = {TO_DO, IN_PROGRESS, DONE};
         for (int i = 0; i < defaults.length; i++) {
             BoardColumn col = BoardColumn.builder()
                     .board(board).title(defaults[i]).position(i).build();
@@ -73,9 +85,10 @@ public class BoardService {
         log.info("Fetching boards for user {}", userId);
         List<BoardDto> boards = boardRepository.findAllByMemberUserId(userId).stream()
                 .map(b -> {
-                    BoardMember m = boardMemberRepository.findByBoardIdAndUserId(b.getId(), userId).orElseThrow();
+                    BoardMember m = boardMemberRepository.findByBoardIdAndUserId(b.getId(), userId)
+                            .orElseThrow(() -> new ResourceNotFoundException(MEMBER_NOT_FOUND));
                     return BoardDto.from(b, m.getRole().name());
-                }).collect(Collectors.toList());
+                }).toList();
         log.debug("Fetching {} boards for user {}", boards.size(), userId);
         log.info("Boards fetched successfully for user {}", userId);
         return boards;
@@ -86,9 +99,10 @@ public class BoardService {
         Page<Board> boards = boardRepository.findAllByMemberUserId(userId, PageRequest.of(page, size));
         List<BoardDto> content = boards.stream()
                 .map(b -> {
-                    BoardMember m = boardMemberRepository.findByBoardIdAndUserId(b.getId(), userId).orElseThrow();
+                    BoardMember m = boardMemberRepository.findByBoardIdAndUserId(b.getId(), userId)
+                            .orElseThrow(() -> new ResourceNotFoundException(MEMBER_NOT_FOUND));
                     return BoardDto.from(b, m.getRole().name());
-                }).collect(Collectors.toList());
+                }).toList();
         PageResponse<BoardDto> response = new PageResponse<>(
                 content, boards.getNumber(), boards.getSize(),
                 boards.getTotalElements(), boards.getTotalPages(),
@@ -102,11 +116,11 @@ public class BoardService {
     public BoardDto getBoard(Long boardId, Long userId) {
         log.info("Fetching board {} for user {}", boardId, userId);
         Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
         BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
                 .orElseThrow(() -> {
                     log.warn("Access denied for user {} to board {}", userId, boardId);
-                    return new RuntimeException("Access denied");
+                    return new BadRequestException(ACCESS_DENIED);
                 });
         BoardDto dto = BoardDto.from(board, member.getRole().name());
         log.info("Board {} fetched successfully", boardId);
@@ -116,19 +130,21 @@ public class BoardService {
     @Transactional
     public InviteResponse inviteMember(Long boardId, InviteRequest req, Long inviterId) {
         log.info("Inviting member {} to board {} by user {}", req.getEmail(), boardId, inviterId);
-        Board board = boardRepository.findById(boardId).orElseThrow();
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
         checkPermission(boardId, inviterId, BoardMember.Role.OWNER);
-        User inviter = userRepository.findById(inviterId).orElseThrow();
+        User inviter = userRepository.findById(inviterId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         if (boardMemberRepository.existsByBoardIdAndUserId(boardId,
                 userRepository.findByEmail(req.getEmail()).map(User::getId).orElse(-1L))) {
             log.warn("User {} already a member of board {}", req.getEmail(), boardId);
-            throw new RuntimeException("User is already a member");
+            throw new BadRequestException("User is already a member");
         }
 
         if (invitationRepository.existsByBoardIdAndEmail(boardId, req.getEmail())) {
             log.warn("User {} already invited to board {}", req.getEmail(), boardId);
-            throw new RuntimeException("User is already invited");
+            throw new BadRequestException("User is already invited");
         }
 
         var userOpt = userRepository.findByEmail(req.getEmail());
@@ -180,7 +196,7 @@ public class BoardService {
         log.info("Fetching columns for board {} and user {}", boardId, userId);
         checkAccess(boardId, userId);
         List<ColumnDto> columns = boardColumnRepository.findByBoardIdAndArchivedFalseOrderByPositionAsc(boardId)
-                .stream().map(ColumnDto::from).collect(Collectors.toList());
+                .stream().map(ColumnDto::from).toList();
         log.debug("Fetched {} columns for board {}", columns.size(), boardId);
         log.info("Columns fetched successfully for board {}", boardId);
         return columns;
@@ -201,15 +217,16 @@ public class BoardService {
     public BoardMembersDto getBoardMembers(Long boardId, Long userId) {
         log.info("Fetching board members for board {} and user {}", boardId, userId);
         checkAccess(boardId, userId);
-        Board board = boardRepository.findById(boardId).orElseThrow();
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
 
         List<BoardMemberDto> members = board.getMembers().stream()
-                .map(BoardMemberDto::from).collect(Collectors.toList());
+                .map(BoardMemberDto::from).toList();
 
         List<InvitationDto> pendingInvitations = invitationRepository.findByBoardId(boardId)
                 .stream()
                 .filter(inv -> inv.getStatus() == Invitation.InvitationStatus.PENDING)
-                .map(InvitationDto::from).collect(Collectors.toList());
+                .map(InvitationDto::from).toList();
 
         BoardMembersDto dto = new BoardMembersDto(members, pendingInvitations);
         log.debug("Fetched {} members and {} pending invitations for board {}", members.size(), pendingInvitations.size(), boardId);
@@ -222,17 +239,18 @@ public class BoardService {
         log.info("Removing member {} from board {} by user {}", memberId, boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
         BoardMember member = boardMemberRepository.findByIdAndBoardId(memberId, boardId)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(MEMBER_NOT_FOUND));
 
         if (member.getRole() == BoardMember.Role.OWNER) {
-            throw new RuntimeException("Board owner cannot be removed");
+            throw new BadRequestException("Board owner cannot be removed");
         }
         if (member.getUser().getId().equals(userId)) {
-            throw new RuntimeException("You cannot remove yourself");
+            throw new BadRequestException("You cannot remove yourself");
         }
 
         Board board = member.getBoard();
-        User actor = userRepository.findById(userId).orElseThrow();
+        User actor = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         User removedUser = member.getUser();
 
         boardMemberRepository.delete(member);
@@ -247,7 +265,7 @@ public class BoardService {
         log.info("Deleting board {} by user {}", boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
         if (!boardRepository.existsById(boardId)) {
-            throw new RuntimeException("Board not found");
+            throw new ResourceNotFoundException(BOARD_NOT_FOUND);
         }
 
         notificationRepository.deleteByBoardId(boardId);
@@ -268,13 +286,15 @@ public class BoardService {
     public BoardDto updateBoard(Long boardId, BoardUpdateRequest req, Long userId) {
         log.info("Updating board {} by user {}", boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
-        Board board = boardRepository.findById(boardId).orElseThrow();
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
 
         if (req.getTitle() != null) board.setTitle(req.getTitle());
         if (req.getBackground() != null) board.setBackground(req.getBackground());
 
         board = boardRepository.save(board);
-        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId).orElseThrow();
+        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(MEMBER_NOT_FOUND));
         BoardDto dto = BoardDto.from(board, member.getRole().name());
         log.info("Board {} updated successfully", boardId);
         return dto;
@@ -292,8 +312,10 @@ public class BoardService {
             log.info("Board {} unstarred by user {}", boardId, userId);
             return false;
         } else {
-            User user = userRepository.findById(userId).orElseThrow();
-            Board board = boardRepository.findById(boardId).orElseThrow();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+            Board board = boardRepository.findById(boardId)
+                    .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
             StarredBoard star = StarredBoard.builder().user(user).board(board).build();
             starredBoardRepository.save(star);
             log.info("Board {} starred by user {}", boardId, userId);
@@ -307,7 +329,7 @@ public class BoardService {
 
     public List<Long> getStarredBoardIds(Long userId) {
         return starredBoardRepository.findByUserIdOrderByStarredAtDesc(userId)
-                .stream().map(s -> s.getBoard().getId()).collect(Collectors.toList());
+                .stream().map(s -> s.getBoard().getId()).toList();
     }
 
     @Transactional
@@ -317,26 +339,27 @@ public class BoardService {
         List<String> columns;
         switch (templateType.toUpperCase()) {
             case "SCRUM":
-                columns = List.of("Backlog", "Sprint", "In Progress", "Review", "Done");
+                columns = List.of("Backlog", "Sprint", IN_PROGRESS, "Review", DONE);
                 break;
             case "BUG_TRACKER":
-                columns = List.of("New", "Triaging", "In Progress", "Testing", "Resolved", "Closed");
+                columns = List.of("New", "Triaging", IN_PROGRESS, "Testing", "Resolved", "Closed");
                 break;
             case "MARKETING":
-                columns = List.of("Ideas", "Planning", "In Progress", "Review", "Published");
+                columns = List.of("Ideas", "Planning", IN_PROGRESS, "Review", "Published");
                 break;
             case "PERSONAL":
-                columns = List.of("To Do", "Doing", "Done");
+                columns = List.of(TO_DO, "Doing", DONE);
                 break;
             case "DESIGN":
                 columns = List.of("Research", "Wireframes", "Design", "Feedback", "Final");
                 break;
             default:
-                columns = List.of("To Do", "In Progress", "Done");
+                columns = List.of(TO_DO, IN_PROGRESS, DONE);
                 break;
         }
 
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         Board board = Board.builder()
                 .title(title)
                 .background(background != null ? background : "#0079BF")
@@ -364,10 +387,10 @@ public class BoardService {
         log.info("Cancelling invitation {} for board {} by user {}", invitationId, boardId, userId);
         checkPermission(boardId, userId, BoardMember.Role.OWNER);
         Invitation invitation = invitationRepository.findById(invitationId)
-                .orElseThrow(() -> new RuntimeException("Invitation not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
 
         if (!invitation.getBoard().getId().equals(boardId)) {
-            throw new RuntimeException("Invitation does not belong to this board");
+            throw new BadRequestException("Invitation does not belong to this board");
         }
 
         invitationRepository.delete(invitation);
@@ -377,7 +400,7 @@ public class BoardService {
     public void checkAccess(Long boardId, Long userId) {
         if (!boardMemberRepository.existsByBoardIdAndUserId(boardId, userId)) {
             log.warn("User {} attempted to access board {} without permission", userId, boardId);
-            throw new RuntimeException("Access denied to this board");
+            throw new BadRequestException("Access denied to this board");
         }
     }
 
@@ -385,13 +408,13 @@ public class BoardService {
         BoardMember m = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
                 .orElseThrow(() -> {
                     log.warn("User {} attempted to access board {} without permission", userId, boardId);
-                    return new RuntimeException("Access denied");
+                    return new BadRequestException(ACCESS_DENIED);
                 });
         if (minRole == BoardMember.Role.OWNER && m.getRole() != BoardMember.Role.OWNER) {
-            throw new RuntimeException("Only board owner can perform this action");
+            throw new BadRequestException("Only board owner can perform this action");
         }
         if (minRole == BoardMember.Role.EDITOR && m.getRole() == BoardMember.Role.VIEWER) {
-            throw new RuntimeException("Viewers cannot perform this action");
+            throw new BadRequestException("Viewers cannot perform this action");
         }
     }
 

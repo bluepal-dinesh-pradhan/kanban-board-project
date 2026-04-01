@@ -15,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 
 import java.util.Map;
 
@@ -28,12 +31,16 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    private static final String USER_NOT_FOUND = "User not found";
+    private static final String PASSWORD_ERROR_MESSAGE = "Password must be at least 8 characters with uppercase, lowercase, number, and special character";
+    private static final String STRENGTH_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
+
     @GetMapping("/profile")
     @Operation(summary = "Get current user profile")
     public ResponseEntity<UserProfileResponse> getProfile(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         log.info("Fetching profile for user: {}", userPrincipal.getEmail());
         User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         return ResponseEntity.ok(UserProfileResponse.builder()
                 .id(user.getId())
@@ -54,7 +61,7 @@ public class UserController {
         log.info("Updating profile name for user: {} to {}", userPrincipal.getEmail(), fullName);
 
         User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         user.setFullName(fullName);
         User savedUser = userRepository.save(user);
@@ -69,7 +76,7 @@ public class UserController {
         log.info("Updating notification preferences for user: {}", userPrincipal.getEmail());
 
         User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         user.setEmailNotifications(request.isEmailNotifications());
         user.setDueDateReminders(request.isDueDateReminders());
@@ -86,13 +93,14 @@ public class UserController {
 
     @PostMapping("/change-password")
     @Operation(summary = "Change user password")
+    @SuppressWarnings("java:S6418")
     public ResponseEntity<ApiResponse<String>> changePassword(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @RequestBody ChangePasswordRequest request) {
         log.info("Changing password for user: {}", userPrincipal.getEmail());
 
         User user = userRepository.findById(userPrincipal.getId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             log.error("Current password incorrect for user: {}", userPrincipal.getEmail());
@@ -106,11 +114,9 @@ public class UserController {
         }
 
         // 2. Strong password validation
-        @SuppressWarnings("java:S6418")
-        String strengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
-        if (!request.getNewPassword().matches(strengthRegex)) {
+        if (!request.getNewPassword().matches(STRENGTH_REGEX)) {
             log.error("New password does not meet strength requirements for user: {}", userPrincipal.getEmail());
-            return ResponseEntity.badRequest().body(ApiResponse.error("Password must be at least 8 characters with uppercase, lowercase, number, and special character"));
+            return ResponseEntity.badRequest().body(ApiResponse.error(PASSWORD_ERROR_MESSAGE));
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

@@ -15,6 +15,8 @@ public class WebSocketNotificationService {
 
     private final SimpMessagingTemplate messagingTemplate;
 
+    private static final String BOARD_TOPIC_PREFIX = "/topic/board/";
+
     // =====================================================
     // EXISTING METHODS (updated to use secure user queues)
     // =====================================================
@@ -71,7 +73,7 @@ public class WebSocketNotificationService {
                 eventType, boardId, userName, userId);
         try {
             BoardEventDto event = BoardEventDto.of(eventType, boardId, userId, userName, payload);
-            messagingTemplate.convertAndSend("/topic/board/" + boardId, event);
+            messagingTemplate.convertAndSend(BOARD_TOPIC_PREFIX + boardId, event);
         } catch (Exception e) {
             log.warn("WebSocket: Failed to broadcast {} to board {}: {}",
                     eventType, boardId, e.getMessage());
@@ -85,7 +87,7 @@ public class WebSocketNotificationService {
         log.info("WebSocket: Broadcasting activity update to board {}", boardId);
         try {
             messagingTemplate.convertAndSend(
-                    "/topic/board/" + boardId + "/activity",
+                    BOARD_TOPIC_PREFIX + boardId + "/activity",
                     activity
             );
         } catch (Exception e) {
@@ -101,7 +103,7 @@ public class WebSocketNotificationService {
         log.info("WebSocket: Broadcasting presence update to board {}", boardId);
         try {
             messagingTemplate.convertAndSend(
-                    "/topic/board/" + boardId + "/presence",
+                    BOARD_TOPIC_PREFIX + boardId + "/presence",
                     presenceData
             );
         } catch (Exception e) {

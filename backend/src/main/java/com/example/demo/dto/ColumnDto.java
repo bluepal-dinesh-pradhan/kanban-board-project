@@ -1,7 +1,7 @@
 package com.example.demo.dto;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 import com.example.demo.entity.BoardColumn;
 
@@ -26,7 +26,7 @@ public class ColumnDto {
         List<CardDto> cards = c.getCards().stream()
                 .filter(card -> !card.isArchived())
                 .map(CardDto::from)
-                .collect(Collectors.toList());
+                .toList();
         return new ColumnDto(c.getId(), c.getTitle(), c.getPosition(), cards);
     }
 }

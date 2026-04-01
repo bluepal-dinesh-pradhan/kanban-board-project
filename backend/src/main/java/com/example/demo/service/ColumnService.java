@@ -13,6 +13,9 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 
 @Service @RequiredArgsConstructor
 @Slf4j
@@ -25,12 +28,16 @@ public class ColumnService {
     private final ActivityService activityService;
     private final WebSocketNotificationService webSocketNotificationService; // NEW
 
+    private static final String COLUMN_NOT_FOUND = "Column not found";
+    private static final String BOARD_NOT_FOUND = "Board not found";
+    private static final String USER_NOT_FOUND = "User not found";
+
     @Transactional
     public ColumnDto create(Long boardId, ColumnRequest req, Long userId) {
         log.info("Creating column '{}' on board {} for user {}", req.getTitle(), boardId, userId);
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
         Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
         int pos = columnRepository.countByBoardIdAndArchivedFalse(boardId);
         log.debug("Board {} currently has {} columns", boardId, pos);
 
@@ -53,7 +60,7 @@ public class ColumnService {
     public ColumnDto update(Long columnId, ColumnUpdateRequest req, Long userId) {
         log.info("Updating column {} by user {}", columnId, userId);
         BoardColumn column = columnRepository.findById(columnId)
-                .orElseThrow(() -> new RuntimeException("Column not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(COLUMN_NOT_FOUND));
         Long boardId = column.getBoard().getId();
 
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
@@ -74,7 +81,7 @@ public class ColumnService {
     public void delete(Long columnId, Long userId) {
         log.info("Deleting column {} by user {}", columnId, userId);
         BoardColumn column = columnRepository.findById(columnId)
-                .orElseThrow(() -> new RuntimeException("Column not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(COLUMN_NOT_FOUND));
         Long boardId = column.getBoard().getId();
         int position = column.getPosition();
         boolean archived = column.isArchived();
@@ -83,9 +90,9 @@ public class ColumnService {
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
 
         Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new RuntimeException("Board not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(BOARD_NOT_FOUND));
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         activityService.log(board, user, "Deleted column: " + title, "COLUMN", columnId);
         columnRepository.delete(column);
@@ -108,7 +115,7 @@ public class ColumnService {
     public void moveColumn(Long columnId, int newPosition, Long userId) {
         log.info("Moving column {} to position {} by user {}", columnId, newPosition, userId);
         BoardColumn column = columnRepository.findById(columnId)
-                .orElseThrow(() -> new RuntimeException("Column not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(COLUMN_NOT_FOUND));
         Long boardId = column.getBoard().getId();
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
 

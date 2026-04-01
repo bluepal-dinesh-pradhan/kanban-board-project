@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/boards")
@@ -131,7 +131,7 @@ public class PresenceController {
                     return (now - (long) lastSeen) > STALE_SECONDS;
                 })
                 .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+                .toList();
 
         staleIds.forEach(id -> {
             users.remove(id);
@@ -149,9 +149,8 @@ public class PresenceController {
         return users.values().stream()
                 .map(u -> {
                     Map<String, Object> clean = new HashMap<>(u);
-                    clean.remove("lastSeen");
                     return clean;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 }

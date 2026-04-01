@@ -70,24 +70,19 @@ public class AuthController {
             description = "Checks whether a user account exists for the provided email.",
             security = {}
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User existence checked")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User existence checked")
     @GetMapping("/check-user")
     public ResponseEntity<ApiResponse<Boolean>> checkUserExists(@RequestParam String email) {
         boolean exists = authService.userExists(email);
         return ResponseEntity.ok(ApiResponse.ok("User existence checked", exists));
     }
     
-    
     @Operation(
             summary = "Forgot password",
             description = "Sends a password reset email to the user.",
             security = {}
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Reset email sent if account exists")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Reset email sent if account exists")
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
         authService.forgotPassword(req.getEmail());
