@@ -11,6 +11,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+
+import com.example.demo.dto.ForgotPasswordRequest;
+import com.example.demo.dto.ResetPasswordRequest;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -73,5 +77,35 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Boolean>> checkUserExists(@RequestParam String email) {
         boolean exists = authService.userExists(email);
         return ResponseEntity.ok(ApiResponse.ok("User existence checked", exists));
+    }
+    
+    
+    @Operation(
+            summary = "Forgot password",
+            description = "Sends a password reset email to the user.",
+            security = {}
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Reset email sent if account exists")
+    })
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        authService.forgotPassword(req.getEmail());
+        return ResponseEntity.ok(ApiResponse.ok("If an account exists with this email, a reset link has been sent.", null));
+    }
+
+    @Operation(
+            summary = "Reset password",
+            description = "Resets the user's password using a valid reset token.",
+            security = {}
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Password reset successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid token or weak password")
+    })
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req.getToken(), req.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.ok("Password has been reset successfully. You can now log in.", null));
     }
 }

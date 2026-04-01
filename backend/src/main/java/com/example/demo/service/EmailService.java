@@ -16,8 +16,9 @@ import java.time.LocalDate;
 @Slf4j
 public class EmailService {
 
-    @Autowired(required = false)
-    private JavaMailSender mailSender;
+//    @Autowired(required = false)
+//    private JavaMailSender mailSender;
+		private final JavaMailSender mailSender;
 
     @Value("${app.mail.enabled:false}")
     private boolean mailEnabled;
@@ -27,6 +28,10 @@ public class EmailService {
 
     @Value("${app.mail.frontend-url:http://localhost:5173}")
     private String frontendUrl;
+    
+    public EmailService(@Autowired(required = false) JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
 
     public boolean sendBoardInvitation(String toEmail, String inviterName, String boardTitle, String role, boolean userExists) {
         log.info("Sending board invitation email to {}", toEmail);
@@ -255,4 +260,84 @@ public class EmailService {
             </html>
             """.formatted(userName, cardTitle, boardTitle, dueDate.toString(), boardUrl);
     }
+    public boolean sendPasswordResetEmail(String toEmail, String token) {
+        log.info("Sending password reset email to {}", toEmail);
+        if (!mailEnabled || mailSender == null) {
+            log.warn("Email disabled. Password reset for {} not sent. Token: {}", toEmail, token);
+            return false;
+        }
+
+        try {
+            String resetUrl = frontendUrl + "/reset-password?token=" + token;
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("Reset Your Password - Kanban Board");
+            helper.setText(buildPasswordResetHtml(resetUrl), true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent successfully to {}", toEmail);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to {}: {}", toEmail, e.getMessage());
+            return false;
+        }
+    }
+
+    private String buildPasswordResetHtml(String resetUrl) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Reset Password</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white;">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%%, #1d4ed8 100%%); padding: 40px 20px; text-align: center;">
+                        <div style="background-color: white; width: 60px; height: 60px; border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #3b82f6 0%%, #1d4ed8 100%%); border-radius: 6px;"></div>
+                        </div>
+                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Kanban Board</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px;">Password Reset Request</p>
+                    </div>
+
+                    <div style="padding: 40px 20px;">
+                        <h2 style="color: #1f2937; margin: 0 0 20px; font-size: 24px; font-weight: 600;">Reset Your Password</h2>
+
+                        <p style="color: #4b5563; margin: 0 0 20px; font-size: 16px; line-height: 1.6;">
+                            We received a request to reset your password. Click the button below to set a new password.
+                        </p>
+
+                        <p style="color: #6b7280; margin: 0 0 30px; font-size: 14px; line-height: 1.5;">
+                            This link will expire in <strong>1 hour</strong>. If you didn't request a password reset, you can safely ignore this email.
+                        </p>
+
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="%s" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%%, #1d4ed8 100%%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
+                                Reset Password
+                            </a>
+                        </div>
+
+                        <p style="color: #9ca3af; margin: 30px 0 0; font-size: 12px; text-align: center;">
+                            If the button doesn't work, copy and paste this link into your browser:<br>
+                            <a href="%s" style="color: #3b82f6; word-break: break-all;">%s</a>
+                        </p>
+                    </div>
+
+                    <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                        <p style="color: #6b7280; margin: 0; font-size: 12px;">
+                            This email was sent by Kanban Board. If you didn't request this, please ignore it.
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(resetUrl, resetUrl, resetUrl);
+    }
+
 }

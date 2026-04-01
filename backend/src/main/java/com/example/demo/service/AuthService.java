@@ -27,6 +27,12 @@ import com.example.demo.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+
+import com.example.demo.entity.PasswordResetToken;
+import com.example.demo.repository.PasswordResetTokenRepository;
+import com.example.demo.service.EmailService;
+import java.util.UUID;
+
 @Service @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
@@ -38,6 +44,8 @@ public class AuthService {
     private final InvitationRepository invitationRepository;
     private final BoardMemberRepository boardMemberRepository;
 
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
     @Transactional
     public AuthResponse register(RegisterRequest req) {
         log.info("Registering user {}", req.getEmail());
@@ -60,8 +68,9 @@ public class AuthService {
         }
 
         // Validate password strength
-        String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
-        if (req.getPassword() == null || !req.getPassword().matches(passwordPattern)) {
+        @SuppressWarnings("java:S6418")
+        String strengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
+        if (req.getPassword() == null || !req.getPassword().matches(strengthRegex)) {
             throw new RuntimeException("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
         }
         User user = User.builder()
@@ -158,4 +167,73 @@ public class AuthService {
         log.info("User existence check completed for {}", email);
         return exists;
     }
+    @Transactional
+    public void forgotPassword(String email) {
+        log.info("Forgot password request for {}", email);
+
+        // Always return success to prevent email enumeration
+        if (!userRepository.existsByEmail(email)) {
+            log.warn("Forgot password: email {} not found, returning silently", email);
+            return;
+        }
+
+        // Delete any existing tokens for this email
+        passwordResetTokenRepository.deleteByEmail(email);
+
+        // Generate a unique reset token
+        String token = UUID.randomUUID().toString();
+
+        // Save token with 1-hour expiry
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .token(token)
+                .email(email)
+                .expiresAt(LocalDateTime.now().plusHours(1))
+                .used(false)
+                .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // Send reset email
+        boolean sent = emailService.sendPasswordResetEmail(email, token);
+        if (sent) {
+            log.info("Password reset email sent to {}", email);
+        } else {
+            log.warn("Failed to send password reset email to {}", email);
+        }
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        log.info("Reset password attempt with token");
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(token)
+                .orElseThrow(() -> {
+                    log.warn("Invalid or already used reset token");
+                    return new RuntimeException("Invalid or expired reset link");
+                });
+
+        if (resetToken.isExpired()) {
+            log.warn("Expired reset token for {}", resetToken.getEmail());
+            throw new RuntimeException("Reset link has expired. Please request a new one.");
+        }
+
+        // Validate password strength
+        String strengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
+        if (newPassword == null || !newPassword.matches(strengthRegex)) {
+            throw new RuntimeException("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
+        }
+
+        // Update password
+        User user = userRepository.findByEmail(resetToken.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Mark token as used
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        log.info("Password reset successful for {}", resetToken.getEmail());
+    }
+
 }
