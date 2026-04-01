@@ -71,11 +71,11 @@ public class JwtService {
     public Long getUserId(String token) {
         Claims claims = parseToken(token);
         Object userIdObj = claims.get("userId");
-        if (userIdObj instanceof Number) {
-            return ((Number) userIdObj).longValue();
-        } else if (userIdObj instanceof String) {
+        if (userIdObj instanceof Number n) {
+            return n.longValue();
+        } else if (userIdObj instanceof String s) {
             try {
-                return Long.valueOf((String) userIdObj);
+                return Long.valueOf(s);
             } catch (NumberFormatException e) {
                 return null;
             }

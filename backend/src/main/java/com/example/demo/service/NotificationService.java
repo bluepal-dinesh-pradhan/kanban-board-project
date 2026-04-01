@@ -11,10 +11,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +58,7 @@ public class NotificationService {
         List<NotificationDto> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(NotificationDto::from)
-                .collect(Collectors.toList());
+                .toList();
         log.debug("Fetching {} notifications for user {}", notifications.size(), userId);
         log.info("Notifications fetched successfully for user {}", userId);
         return notifications;
@@ -85,11 +88,11 @@ public class NotificationService {
     public void markAsRead(Long notificationId, Long userId) {
         log.info("Marking notification {} as read for user {}", notificationId, userId);
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
         
         if (!notification.getUser().getId().equals(userId)) {
             log.warn("User {} attempted to access notification {} without permission", userId, notificationId);
-            throw new RuntimeException("Access denied");
+            throw new BadRequestException("Access denied");
         }
         
         notification.setRead(true);

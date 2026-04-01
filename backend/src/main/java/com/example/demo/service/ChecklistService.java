@@ -9,10 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -26,9 +29,14 @@ public class ChecklistService {
     private final ActivityService activityService;
     private final WebSocketNotificationService webSocketNotificationService;
 
+    private static final String CHECKLIST_ITEM_NOT_FOUND = "Checklist item not found";
+    private static final String PAYLOAD_CARD_ID = "cardId";
+    private static final String PAYLOAD_CHECKLIST = "checklist";
+    private static final String EVENT_CARD_UPDATED = "card.updated";
+
     public List<ChecklistDto> getItems(Long cardId) {
         return checklistRepository.findByCardIdOrderByPositionAsc(cardId)
-                .stream().map(ChecklistDto::from).collect(Collectors.toList());
+                .stream().map(ChecklistDto::from).toList();
     }
 
     @Transactional
@@ -53,8 +61,8 @@ public class ChecklistService {
         ChecklistDto dto = ChecklistDto.from(item);
         log.info("Checklist item '{}' added to card {}", title, cardId);
 
-        broadcastSafely(boardId, "card.updated", userId, user.getFullName(),
-                Map.of("cardId", cardId, "checklist", "item_added"));
+        broadcastSafely(boardId, EVENT_CARD_UPDATED, userId, user.getFullName(),
+                Map.of(PAYLOAD_CARD_ID, cardId, PAYLOAD_CHECKLIST, "item_added"));
 
         return dto;
     }
@@ -63,7 +71,7 @@ public class ChecklistService {
     public ChecklistDto toggleItem(Long itemId, Long userId) {
         log.info("Toggling checklist item {} by user {}", itemId, userId);
         Checklist item = checklistRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Checklist item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(CHECKLIST_ITEM_NOT_FOUND));
         Long boardId = item.getCard().getColumn().getBoard().getId();
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
 
@@ -74,8 +82,8 @@ public class ChecklistService {
         ChecklistDto dto = ChecklistDto.from(item);
         log.info("Checklist item {} toggled to {}", itemId, item.isCompleted());
 
-        broadcastSafely(boardId, "card.updated", userId, user.getFullName(),
-                Map.of("cardId", item.getCard().getId(), "checklist", "item_toggled"));
+        broadcastSafely(boardId, EVENT_CARD_UPDATED, userId, user.getFullName(),
+                Map.of(PAYLOAD_CARD_ID, item.getCard().getId(), PAYLOAD_CHECKLIST, "item_toggled"));
 
         return dto;
     }
@@ -84,7 +92,7 @@ public class ChecklistService {
     public ChecklistDto updateItem(Long itemId, String title, Long userId) {
         log.info("Updating checklist item {} by user {}", itemId, userId);
         Checklist item = checklistRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Checklist item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(CHECKLIST_ITEM_NOT_FOUND));
         Long boardId = item.getCard().getColumn().getBoard().getId();
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
 
@@ -99,7 +107,7 @@ public class ChecklistService {
     public void deleteItem(Long itemId, Long userId) {
         log.info("Deleting checklist item {} by user {}", itemId, userId);
         Checklist item = checklistRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Checklist item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(CHECKLIST_ITEM_NOT_FOUND));
         Long boardId = item.getCard().getColumn().getBoard().getId();
         Long cardId = item.getCard().getId();
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
@@ -109,8 +117,8 @@ public class ChecklistService {
         User user = userRepository.findById(userId).orElseThrow();
         log.info("Checklist item {} deleted", itemId);
 
-        broadcastSafely(boardId, "card.updated", userId, user.getFullName(),
-                Map.of("cardId", cardId, "checklist", "item_deleted"));
+        broadcastSafely(boardId, EVENT_CARD_UPDATED, userId, user.getFullName(),
+                Map.of(PAYLOAD_CARD_ID, cardId, PAYLOAD_CHECKLIST, "item_deleted"));
     }
 
     /**

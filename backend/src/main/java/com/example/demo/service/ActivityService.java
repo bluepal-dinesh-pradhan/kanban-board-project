@@ -13,7 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 @Service @RequiredArgsConstructor
 @Slf4j
@@ -34,7 +34,7 @@ public class ActivityService {
     public List<ActivityDto> getByBoard(Long boardId) {
         log.info("Fetching activities for board {}", boardId);
         List<ActivityDto> activities = activityRepository.findByBoardIdOrderByCreatedAtDesc(boardId)
-                .stream().map(ActivityDto::from).collect(Collectors.toList());
+                .stream().map(ActivityDto::from).toList();
         log.debug("Fetching {} activities for board {}", activities.size(), boardId);
         log.info("Activities fetched successfully for board {}", boardId);
         return activities;

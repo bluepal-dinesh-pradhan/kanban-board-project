@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.Collections;
+import org.springframework.lang.Nullable;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -22,7 +23,8 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
     private final JwtService jwtService;
 
     @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+    @Nullable
+    public Message<?> preSend(@Nullable Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 

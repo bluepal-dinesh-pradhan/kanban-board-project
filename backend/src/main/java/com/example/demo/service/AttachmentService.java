@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -18,7 +21,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
+
 
 @Service
 @RequiredArgsConstructor
@@ -44,10 +47,10 @@ public class AttachmentService {
         boardService.checkPermission(boardId, userId, BoardMember.Role.EDITOR);
 
         if (file.isEmpty()) {
-            throw new RuntimeException("File is empty");
+            throw new BadRequestException("File is empty");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new RuntimeException("File size exceeds 10MB limit");
+            throw new BadRequestException("File size exceeds 10MB limit");
         }
 
         // Create upload directory if not exists
@@ -94,12 +97,12 @@ public class AttachmentService {
 
     public List<AttachmentDto> getAttachments(Long cardId) {
         return attachmentRepository.findByCardIdOrderByUploadedAtDesc(cardId)
-                .stream().map(AttachmentDto::from).collect(Collectors.toList());
+                .stream().map(AttachmentDto::from).toList();
     }
 
     public Attachment getAttachment(Long attachmentId) {
         return attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
     }
 
     public Path getFilePath(Attachment attachment) {
@@ -110,7 +113,7 @@ public class AttachmentService {
     public void delete(Long attachmentId, Long userId) {
         log.info("Deleting attachment {} by user {}", attachmentId, userId);
         Attachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found"));
 
         Long boardId = attachment.getCard().getColumn().getBoard().getId();
         Long cardId = attachment.getCard().getId();

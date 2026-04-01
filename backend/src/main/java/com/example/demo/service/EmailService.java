@@ -16,9 +16,7 @@ import java.time.LocalDate;
 @Slf4j
 public class EmailService {
 
-//    @Autowired(required = false)
-//    private JavaMailSender mailSender;
-		private final JavaMailSender mailSender;
+    private final JavaMailSender mailSender;
 
     @Value("${app.mail.enabled:false}")
     private boolean mailEnabled;

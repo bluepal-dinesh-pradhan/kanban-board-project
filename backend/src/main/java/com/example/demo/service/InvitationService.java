@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
+
 import java.time.LocalDateTime;
 
 @Service
@@ -29,12 +32,12 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> {
                     log.warn("Invitation not found for provided token");
-                    return new RuntimeException("Invitation not found");
+                    return new ResourceNotFoundException("Invitation not found");
                 });
 
         if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             log.warn("Invitation {} has expired", invitation.getId());
-            throw new RuntimeException("Invitation has expired");
+            throw new BadRequestException("Invitation has expired");
         }
 
         boolean userExists = userRepository.existsByEmail(invitation.getEmail());
@@ -59,23 +62,23 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> {
                     log.warn("Invitation not found for provided token");
-                    return new RuntimeException("Invitation not found");
+                    return new ResourceNotFoundException("Invitation not found");
                 });
 
         if (invitation.getExpiresAt() != null && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             log.warn("Invitation {} has expired", invitation.getId());
-            throw new RuntimeException("Invitation has expired");
+            throw new BadRequestException("Invitation has expired");
         }
 
         if (invitation.getStatus() == Invitation.InvitationStatus.DECLINED) {
             log.warn("Invitation {} has been declined", invitation.getId());
-            throw new RuntimeException("Invitation has been declined");
+            throw new BadRequestException("Invitation has been declined");
         }
 
         User user = userRepository.findById(userId).orElseThrow();
         if (!user.getEmail().equalsIgnoreCase(invitation.getEmail())) {
             log.warn("Invitation {} was sent to different email than user {}", invitation.getId(), userId);
-            throw new RuntimeException("This invitation was sent to a different email");
+            throw new BadRequestException("This invitation was sent to a different email");
         }
 
         if (!boardMemberRepository.existsByBoardIdAndUserId(invitation.getBoard().getId(), user.getId())) {

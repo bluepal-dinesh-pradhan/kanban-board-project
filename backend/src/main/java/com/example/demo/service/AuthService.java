@@ -31,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.repository.PasswordResetTokenRepository;
 import com.example.demo.service.EmailService;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
 import java.util.UUID;
 
 @Service @RequiredArgsConstructor
@@ -46,32 +48,35 @@ public class AuthService {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+
+    private static final String USER_NOT_FOUND = "User not found";
+    private static final String PASSWORD_ERROR_MESSAGE = "Password must be at least 8 characters with uppercase, lowercase, number, and special character";
+    private static final String STRENGTH_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
     @Transactional
+    @SuppressWarnings("java:S6418")
     public AuthResponse register(RegisterRequest req) {
         log.info("Registering user {}", req.getEmail());
         
         // Validate name is not empty
         if (req.getFullName() == null || req.getFullName().trim().isEmpty()) {
-            throw new RuntimeException("Full name is required");
+            throw new BadRequestException("Full name is required");
         }
 
         // Validate email format
         String emailPattern = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
         if (req.getEmail() == null || !req.getEmail().matches(emailPattern)) {
-            throw new RuntimeException("Valid email is required");
+            throw new BadRequestException("Valid email is required");
         }
 
         // Check if email already registered
         if (userRepository.existsByEmail(req.getEmail())) {
             log.warn("Registration attempt with existing email {}", req.getEmail());
-            throw new RuntimeException("Email is already registered");
+            throw new BadRequestException("Email is already registered");
         }
 
         // Validate password strength
-        @SuppressWarnings("java:S6418")
-        String strengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
-        if (req.getPassword() == null || !req.getPassword().matches(strengthRegex)) {
-            throw new RuntimeException("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
+        if (req.getPassword() == null || !req.getPassword().matches(STRENGTH_REGEX)) {
+            throw new BadRequestException(PASSWORD_ERROR_MESSAGE);
         }
         User user = User.builder()
                 .email(req.getEmail())
@@ -117,14 +122,14 @@ public class AuthService {
             throw e;
         } catch (AuthenticationException e) {
             log.warn("Login failed for {}: {}", req.getEmail(), e.getMessage());
-            throw new RuntimeException("Invalid email or password");
+            throw new BadRequestException("Invalid email or password");
         }
         
         log.debug("Authentication succeeded for {}", req.getEmail());
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> {
                     log.warn("Login failed: user not found for {}", req.getEmail());
-                    return new RuntimeException("Invalid email or password");
+                    return new BadRequestException("Invalid email or password");
                 });
         AuthResponse response = buildAuthResponse(user);
         log.info("Login successful for user {}", user.getId());
@@ -136,14 +141,14 @@ public class AuthService {
         String token = req.getRefreshToken();
         if (!jwtService.isValid(token)) {
             log.warn("Refresh token validation failed");
-            throw new RuntimeException("Invalid refresh token");
+            throw new BadRequestException("Invalid refresh token");
         }
         String email = jwtService.getEmail(token);
         log.debug("Refresh token validated for {}", email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.warn("Refresh failed: user not found for {}", email);
-                    return new RuntimeException("User not found");
+                    return new ResourceNotFoundException(USER_NOT_FOUND);
                 });
         AuthResponse response = buildAuthResponse(user);
         log.info("Token refreshed successfully for user {}", user.getId());
@@ -208,23 +213,22 @@ public class AuthService {
         PasswordResetToken resetToken = passwordResetTokenRepository.findByTokenAndUsedFalse(token)
                 .orElseThrow(() -> {
                     log.warn("Invalid or already used reset token");
-                    return new RuntimeException("Invalid or expired reset link");
+                    return new BadRequestException("Invalid or expired reset link");
                 });
 
         if (resetToken.isExpired()) {
             log.warn("Expired reset token for {}", resetToken.getEmail());
-            throw new RuntimeException("Reset link has expired. Please request a new one.");
+            throw new BadRequestException("Reset link has expired. Please request a new one.");
         }
 
         // Validate password strength
-        String strengthRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,}$";
-        if (newPassword == null || !newPassword.matches(strengthRegex)) {
-            throw new RuntimeException("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
+        if (newPassword == null || !newPassword.matches(STRENGTH_REGEX)) {
+            throw new BadRequestException(PASSWORD_ERROR_MESSAGE);
         }
 
         // Update password
         User user = userRepository.findByEmail(resetToken.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);

@@ -3,7 +3,7 @@ package com.example.demo.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 import com.example.demo.entity.Card;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -44,11 +44,11 @@ public class CardDto {
     public static CardDto from(Card c) {
         List<LabelDto> labels = c.getLabels().stream()
                 .map(l -> new LabelDto(l.getId(), l.getColor(), l.getText()))
-                .collect(Collectors.toList());
+                .toList();
 
         List<CardReminderDto> reminders = c.getReminders().stream()
                 .map(CardReminderDto::from)
-                .collect(Collectors.toList());
+                .toList();
 
         boolean isOverdue = c.getDueDate() != null && c.getDueDate().isBefore(LocalDate.now());
 
