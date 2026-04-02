@@ -1,10 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.AuthRequest;
-import com.example.demo.dto.AuthResponse;
-import com.example.demo.dto.RegisterRequest;
-import com.example.demo.dto.ResetPasswordRequest;
-import com.example.demo.dto.UserDto;
+import com.example.demo.dto.*;
 import com.example.demo.service.AuthService;
 import com.example.demo.exception.BadRequestException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -220,12 +217,27 @@ class AuthControllerTest {
     }
 
     @Test
-    void refresh_withInvalidToken_shouldReturn400() throws Exception {
-        when(authService.refresh(any())).thenThrow(new BadRequestException("Invalid refresh token"));
+    void refresh_withValidToken_shouldReturn200() throws Exception {
+        RefreshTokenRequest req = new RefreshTokenRequest();
+        req.setRefreshToken("valid_refresh_token");
+
+        AuthResponse response = new AuthResponse("new_access", "new_refresh", new UserDto());
+        when(authService.refresh(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"refreshToken\":\"invalid\"}"))
-                .andExpect(status().isBadRequest());
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("new_access"));
+    }
+
+    @Test
+    void checkUserExists_shouldReturn200() throws Exception {
+        when(authService.userExists("test@example.com")).thenReturn(true);
+
+        mockMvc.perform(get("/api/auth/check-user")
+                        .param("email", "test@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(true));
     }
 }
