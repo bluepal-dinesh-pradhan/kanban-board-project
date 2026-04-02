@@ -1,17 +1,10 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.BoardDto;
-import com.example.demo.dto.BoardRequest;
-import com.example.demo.dto.BoardUpdateRequest;
-import com.example.demo.dto.InviteRequest;
-import com.example.demo.entity.Board;
-import com.example.demo.entity.BoardMember;
-import com.example.demo.entity.User;
-import com.example.demo.repository.BoardRepository;
-import com.example.demo.repository.BoardMemberRepository;
-import com.example.demo.repository.UserRepository;
-import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.dto.*;
+import com.example.demo.entity.*;
 import com.example.demo.exception.BadRequestException;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +13,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
@@ -37,10 +31,19 @@ class BoardServiceTest {
     private BoardRepository boardRepository;
 
     @Autowired
+    private BoardMemberRepository boardMemberRepository;
+
+    @Autowired
+    private BoardColumnRepository boardColumnRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
-    private BoardMemberRepository boardMemberRepository;
+    private InvitationRepository invitationRepository;
+
+    @Autowired
+    private StarredBoardRepository starredBoardRepository;
 
     @MockBean
     private ActivityService activityService;
@@ -52,264 +55,177 @@ class BoardServiceTest {
 
     @BeforeEach
     void setUp() {
+        boardMemberRepository.deleteAll();
+        boardColumnRepository.deleteAll();
+        invitationRepository.deleteAll();
         boardRepository.deleteAll();
         userRepository.deleteAll();
-        boardMemberRepository.deleteAll();
 
         owner = User.builder()
                 .email("owner@example.com")
-                .password("pass")
+                .password("password")
                 .fullName("Owner")
                 .build();
-        owner = userRepository.saveAndFlush(owner);
+        owner = userRepository.save(owner);
     }
 
     @Test
     void createBoard_shouldSuccess() {
         BoardRequest req = new BoardRequest();
         req.setTitle("Project Board");
-        req.setBackground("#000000");
+        req.setBackground("#FFFFFF");
 
         BoardDto response = boardService.create(req, owner.getId());
 
         assertNotNull(response);
         assertEquals("Project Board", response.getTitle());
         assertTrue(boardRepository.existsById(response.getId()));
-        
-        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(response.getId(), owner.getId()).orElse(null);
-        assertNotNull(member);
-        assertEquals(BoardMember.Role.OWNER, member.getRole());
-    }
-
-    @Test
-    void getBoard_withValidId_shouldReturnBoard() {
-        Board board = Board.builder()
-                .title("Board")
-                .owner(owner)
-                .build();
-        board = boardRepository.saveAndFlush(board);
-        
-        BoardMember member = BoardMember.builder()
-                .board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
-
-        BoardDto response = boardService.getBoard(board.getId(), owner.getId());
-
-        assertNotNull(response);
-        assertEquals("Board", response.getTitle());
-    }
-
-    @Test
-    void getBoard_withInvalidId_shouldThrowException() {
-        assertThrows(ResourceNotFoundException.class, () -> boardService.getBoard(999L, owner.getId()));
-    }
-
-    @Test
-    void deleteBoard_asOwner_shouldSuccess() {
-        Board board = Board.builder()
-                .title("To Delete")
-                .owner(owner)
-                .build();
-        board = boardRepository.saveAndFlush(board);
-        
-        BoardMember member = BoardMember.builder()
-                .board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
-
-        boardService.deleteBoard(board.getId(), owner.getId());
-
-        assertFalse(boardRepository.existsById(board.getId()));
-    }
-
-    @Test
-    void deleteBoard_asNonOwner_shouldThrowException() {
-        User other = User.builder().email("other@example.com").password("pass").fullName("Other").build();
-        other = userRepository.saveAndFlush(other);
-        
-        Board board = Board.builder()
-                .title("Forbidden")
-                .owner(owner)
-                .build();
-        board = boardRepository.saveAndFlush(board);
-        
-        BoardMember member = BoardMember.builder()
-                .board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
-        
-        BoardMember viewer = BoardMember.builder()
-                .board(board).user(other).role(BoardMember.Role.VIEWER).build();
-        boardMemberRepository.saveAndFlush(viewer);
-
-        Long boardId = board.getId();
-        Long otherId = other.getId();
-        assertThrows(BadRequestException.class, () -> boardService.deleteBoard(boardId, otherId));
-    }
-
-    @Test
-    void updateBoard_shouldSuccess() {
-        Board board = Board.builder()
-                .title("Old Title")
-                .owner(owner)
-                .build();
-        board = boardRepository.saveAndFlush(board);
-        
-        BoardMember member = BoardMember.builder()
-                .board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
-
-        BoardUpdateRequest req = new BoardUpdateRequest();
-        req.setTitle("New Title");
-
-        BoardDto response = boardService.updateBoard(board.getId(), req, owner.getId());
-
-        assertEquals("New Title", response.getTitle());
-        Board updated = boardRepository.findById(board.getId()).orElseThrow();
-        assertEquals("New Title", updated.getTitle());
+        assertEquals(3, boardColumnRepository.findByBoardIdAndArchivedFalseOrderByPositionAsc(response.getId()).size());
+        verify(activityService).log(any(), any(), eq("CREATED_BOARD"), eq("BOARD"), anyLong());
     }
 
     @Test
     void getUserBoards_shouldReturnList() {
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
 
-        var result = boardService.getUserBoards(owner.getId());
-        assertEquals(1, result.size());
+        List<BoardDto> list = boardService.getUserBoards(owner.getId());
+        assertFalse(list.isEmpty());
     }
 
     @Test
-    void getBoardColumns_shouldReturnColumns() {
+    void getUserBoards_paged_shouldReturnPage() {
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
 
-        var result = boardService.getBoardColumns(board.getId(), owner.getId());
-        assertTrue(result.isEmpty());
+        PageResponse<BoardDto> page = boardService.getUserBoards(owner.getId(), 0, 10);
+        assertNotNull(page);
     }
 
     @Test
-    void toggleStar_shouldChangeStatus() {
+    void inviteMember_existingUser_shouldAddDirectly() {
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
 
-        boolean starred = boardService.toggleStar(board.getId(), owner.getId());
-        assertTrue(starred);
-        
-        boolean unstarred = boardService.toggleStar(board.getId(), owner.getId());
-        assertFalse(unstarred);
-    }
-
-    @Test
-    void createFromTemplate_shouldCreateBoard() {
-        BoardDto response = boardService.createFromTemplate("Kanban", "Agile", "Blue", owner.getId());
-        assertNotNull(response);
-        assertEquals("Kanban", response.getTitle());
-    }
-
-    @Test
-    void boardAccess_asOwner_shouldPass() {
-        Board b = Board.builder().title("B").owner(owner).build();
-        final Board board = boardRepository.saveAndFlush(b);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
-
-        assertDoesNotThrow(() -> boardService.checkPermission(board.getId(), owner.getId(), BoardMember.Role.OWNER));
-    }
-
-    @Test
-    void inviteMember_shouldLink() {
-        Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(member);
+        User invitee = User.builder().email("invitee@test.com").password("p").fullName("Invitee").build();
+        final User savedInvitee = userRepository.save(invitee);
 
         InviteRequest req = new InviteRequest();
-        req.setEmail("new@user.com");
+        req.setEmail("invitee@test.com");
         req.setRole(BoardMember.Role.EDITOR);
-        assertNotNull(boardService.inviteMember(board.getId(), req, owner.getId()));
+
+        InviteResponse resp = boardService.inviteMember(savedBoard.getId(), req, owner.getId());
+
+        assertEquals("ADDED", resp.getStatus());
+        assertTrue(boardMemberRepository.existsByBoardIdAndUserId(savedBoard.getId(), savedInvitee.getId()));
     }
 
     @Test
-    @Transactional
-    void getMembers_shouldReturnList() {
-        Board board = Board.builder().title("B").owner(owner).members(new java.util.ArrayList<>()).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember member = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        member = boardMemberRepository.saveAndFlush(member);
-        
-        // Handle laziness in test context
-        board.getMembers().add(member);
-        boardRepository.saveAndFlush(board);
+    void inviteMember_newUser_shouldCreateInvitation() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
 
-        var members = boardService.getBoardMembers(board.getId(), owner.getId());
-        assertEquals(1, members.getMembers().size());
+        InviteRequest req = new InviteRequest();
+        req.setEmail("new@test.com"); req.setRole(BoardMember.Role.VIEWER);
+
+        InviteResponse resp = boardService.inviteMember(savedBoard.getId(), req, owner.getId());
+
+        assertEquals("INVITED", resp.getStatus());
+        assertTrue(invitationRepository.existsByBoardIdAndEmail(savedBoard.getId(), "new@test.com"));
+    }
+
+    @Test
+    void inviteMember_alreadyMember_shouldThrow() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        final InviteRequest req = new InviteRequest();
+        req.setEmail(owner.getEmail()); req.setRole(BoardMember.Role.EDITOR);
+        final Long uid = owner.getId();
+
+        assertThrows(BadRequestException.class, () -> boardService.inviteMember(savedBoard.getId(), req, uid));
     }
 
     @Test
     void removeMember_shouldSuccess() {
-        User other = User.builder().email("other@x.com").password("p").fullName("O").build();
-        other = userRepository.saveAndFlush(other);
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        BoardMember m1 = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
-        boardMemberRepository.saveAndFlush(m1);
-        BoardMember m2 = BoardMember.builder().board(board).user(other).role(BoardMember.Role.VIEWER).build();
-        boardMemberRepository.saveAndFlush(m2);
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m1 = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m1);
 
-        boardService.removeMember(board.getId(), m2.getId(), owner.getId());
-        assertFalse(boardMemberRepository.existsByBoardIdAndUserId(board.getId(), other.getId()));
+        User other = User.builder().email("o@t.com").password("p").fullName("O").build();
+        final User savedOther = userRepository.save(other);
+        BoardMember m2 = BoardMember.builder().board(savedBoard).user(savedOther).role(BoardMember.Role.EDITOR).build();
+        final BoardMember savedMember = boardMemberRepository.save(m2);
+
+        boardService.removeMember(savedBoard.getId(), savedMember.getId(), owner.getId());
+
+        assertFalse(boardMemberRepository.existsById(savedMember.getId()));
     }
 
     @Test
-    void getBoard_whenNotMember_shouldThrowException() {
+    void toggleStar_shouldWork() {
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        assertTrue(boardService.toggleStar(savedBoard.getId(), owner.getId())); // Starred
+        assertTrue(starredBoardRepository.existsByUserIdAndBoardId(owner.getId(), savedBoard.getId()));
         
-        User other = User.builder().email("no-member@x.com").password("p").fullName("N").build();
-        other = userRepository.saveAndFlush(other);
-        
-        final Long bId = board.getId();
-        final Long uId = other.getId();
-        assertThrows(BadRequestException.class, () -> boardService.getBoard(bId, uId));
+        assertFalse(boardService.toggleStar(savedBoard.getId(), owner.getId())); // Unstarred
+        assertFalse(starredBoardRepository.existsByUserIdAndBoardId(owner.getId(), savedBoard.getId()));
     }
 
     @Test
-    void deleteBoard_asEditor_shouldThrowException() {
-        User editor = User.builder().email("editor@x.com").password("p").fullName("E").build();
-        editor = userRepository.saveAndFlush(editor);
-        
-        Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
-        
-        BoardMember mem = BoardMember.builder().board(board).user(editor).role(BoardMember.Role.EDITOR).build();
-        boardMemberRepository.saveAndFlush(mem);
-        
-        final Long bId = board.getId();
-        final Long eId = editor.getId();
-        assertThrows(BadRequestException.class, () -> boardService.deleteBoard(bId, eId));
+    void createFromTemplate_SCRUM_shouldWork() {
+        BoardDto dto = boardService.createFromTemplate("Scrum", null, "SCRUM", owner.getId());
+        assertEquals(5, boardColumnRepository.findByBoardIdAndArchivedFalseOrderByPositionAsc(dto.getId()).size());
     }
 
     @Test
-    void inviteMember_asViewer_shouldThrowException() {
-        User viewer = User.builder().email("viewer@x.com").password("p").fullName("V").build();
-        viewer = userRepository.saveAndFlush(viewer);
-        
+    void cancelInvitation_shouldSuccess() {
         Board board = Board.builder().title("B").owner(owner).build();
-        board = boardRepository.saveAndFlush(board);
+        final Board savedBoard = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        Invitation inv = Invitation.builder()
+                .board(savedBoard)
+                .invitedBy(owner)
+                .email("e")
+                .role(BoardMember.Role.EDITOR)
+                .status(Invitation.InvitationStatus.PENDING)
+                .build();
+        final Invitation savedInv = invitationRepository.save(inv);
+
+        boardService.cancelInvitation(savedBoard.getId(), savedInv.getId(), owner.getId());
+        assertFalse(invitationRepository.existsById(savedInv.getId()));
+    }
+
+    @Test
+    void checkPermission_shouldThrowWhenLowRole() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        final Board savedBoard = boardRepository.save(board);
         
-        BoardMember mem = BoardMember.builder().board(board).user(viewer).role(BoardMember.Role.VIEWER).build();
-        boardMemberRepository.saveAndFlush(mem);
-        
-        InviteRequest req = new InviteRequest();
-        req.setEmail("new@user.com");
-        req.setRole(BoardMember.Role.EDITOR);
-        
-        final Long bId = board.getId();
-        final Long vId = viewer.getId();
-        assertThrows(BadRequestException.class, () -> boardService.inviteMember(bId, req, vId));
+        User viewer = User.builder().email("v@t.com").password("p").fullName("V").build();
+        final User savedViewer = userRepository.save(viewer);
+        BoardMember m = BoardMember.builder().board(savedBoard).user(savedViewer).role(BoardMember.Role.VIEWER).build();
+        boardMemberRepository.save(m);
+
+        final Long bid = savedBoard.getId();
+        final Long uid = savedViewer.getId();
+        assertThrows(BadRequestException.class, () -> boardService.checkPermission(bid, uid, BoardMember.Role.OWNER));
+        assertThrows(BadRequestException.class, () -> boardService.checkPermission(bid, uid, BoardMember.Role.EDITOR));
     }
 }

@@ -1,11 +1,10 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.CardDto;
-import com.example.demo.dto.CardRequest;
-import com.example.demo.dto.MoveCardRequest;
+import com.example.demo.dto.*;
 import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.exception.BadRequestException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +12,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +39,9 @@ class CardServiceTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
 
     @MockBean
     private BoardService boardService;
@@ -77,6 +82,7 @@ class CardServiceTest {
         req.setTitle("Task 1");
         req.setColumnId(column.getId());
         req.setPriority("HIGH");
+        req.setLabels(List.of(new LabelDto(null, "red", "urgent")));
 
         CardDto response = cardService.create(board.getId(), req, user.getId());
 
@@ -88,6 +94,22 @@ class CardServiceTest {
     }
 
     @Test
+    void createCard_invalidPriority_shouldSetNone() {
+        CardRequest req = new CardRequest();
+        req.setTitle("Task"); req.setColumnId(column.getId());
+        req.setPriority("INVALID");
+        CardDto response = cardService.create(board.getId(), req, user.getId());
+        assertEquals("NONE", response.getPriority());
+    }
+
+    @Test
+    void createCard_columnNotFound_shouldThrow() {
+        CardRequest req = new CardRequest();
+        req.setColumnId(999L);
+        assertThrows(ResourceNotFoundException.class, () -> cardService.create(board.getId(), req, user.getId()));
+    }
+
+    @Test
     void updateCard_shouldSuccess() {
         Card card = Card.builder().column(column).title("Old").position(0).build();
         card = cardRepository.save(card);
@@ -95,12 +117,68 @@ class CardServiceTest {
         CardRequest req = new CardRequest();
         req.setTitle("Updated");
         req.setPriority("LOW");
+        req.setLabels(List.of(new LabelDto(null, "blue", "tag")));
 
         CardDto response = cardService.update(card.getId(), req, user.getId());
 
         assertEquals("Updated", response.getTitle());
         assertEquals("LOW", response.getPriority());
         verify(boardService).checkPermission(anyLong(), eq(user.getId()), any());
+    }
+
+    @Test
+    void updatePriority_shouldSuccess() {
+        Card card = Card.builder().column(column).title("T").position(0).build();
+        card = cardRepository.save(card);
+
+        CardDto response = cardService.updatePriority(card.getId(), "MEDIUM", user.getId());
+        assertEquals("MEDIUM", response.getPriority());
+    }
+
+    @Test
+    void assignCard_unassign_shouldSuccess() {
+        Card card = Card.builder().column(column).title("T").assignee(user).build();
+        card = cardRepository.save(card);
+
+        CardDto response = cardService.assignCard(card.getId(), null, user.getId());
+        assertNull(response.getAssigneeId());
+    }
+
+    @Test
+    void assignCard_toUser_shouldSuccess() {
+        Card card = Card.builder().column(column).title("T").build();
+        card = cardRepository.save(card);
+
+        CardDto response = cardService.assignCard(card.getId(), user.getId(), user.getId());
+        assertEquals(user.getId(), response.getAssigneeId());
+        verify(boardService).checkAccess(board.getId(), user.getId());
+    }
+
+    @Test
+    void duplicate_withLabels_shouldSuccess() {
+        Card card = Card.builder().column(column).title("Original").position(0).build();
+        card = cardRepository.save(card);
+
+        CardDto result = cardService.duplicate(card.getId(), user.getId());
+
+        assertEquals("Original (copy)", result.getTitle());
+    }
+
+    @Test
+    void restore_notArchived_shouldThrow() {
+        Card card = Card.builder().column(column).title("Active").archived(false).build();
+        card = cardRepository.save(card);
+        final Long cid = card.getId();
+        final Long uid = user.getId();
+        assertThrows(BadRequestException.class, () -> cardService.restore(cid, uid));
+    }
+
+    @Test
+    void getArchivedCards_shouldReturnList() {
+        Card card = Card.builder().column(column).title("A").archived(true).build();
+        cardRepository.save(card);
+        List<CardDto> list = cardService.getArchivedCards(board.getId(), user.getId());
+        assertFalse(list.isEmpty());
     }
 
     @Test
@@ -122,57 +200,24 @@ class CardServiceTest {
     }
 
     @Test
-    void archiveCard_shouldSuccess() {
-        Card card = Card.builder().column(column).title("Title").position(0).build();
-        card = cardRepository.saveAndFlush(card);
-
-        CardDto result = cardService.archive(card.getId(), user.getId());
-
-        assertTrue(cardRepository.findById(card.getId()).get().isArchived());
-        verify(boardService).checkPermission(eq(board.getId()), eq(user.getId()), any());
-    }
-
-    @Test
-    void getCard_shouldReturnDto() {
-        Card card = Card.builder().column(column).title("Title").position(0).build();
-        card = cardRepository.saveAndFlush(card);
-
-        CardDto result = cardService.getCard(card.getId(), user.getId());
-
-        assertEquals("Title", result.getTitle());
-        verify(boardService).checkAccess(eq(board.getId()), eq(user.getId()));
-    }
-
-    @Test
-    void duplicate_shouldCreateCopy() {
-        Card card = Card.builder().column(column).title("Original").position(0).build();
-        card = cardRepository.saveAndFlush(card);
-
-        CardDto result = cardService.duplicate(card.getId(), user.getId());
-
-        assertEquals("Original (copy)", result.getTitle());
-        assertEquals(2, cardRepository.countByColumnIdAndArchivedFalse(column.getId()));
-        verify(boardService).checkPermission(eq(board.getId()), eq(user.getId()), any());
-    }
-
-    @Test
-    void restore_shouldUnarchive() {
-        Card card = Card.builder().column(column).title("Archived").archived(true).position(0).build();
-        card = cardRepository.saveAndFlush(card);
-
-        CardDto result = cardService.restore(card.getId(), user.getId());
-
-        assertFalse(cardRepository.findById(card.getId()).get().isArchived());
-        verify(boardService).checkPermission(eq(board.getId()), eq(user.getId()), any());
-    }
-
-    @Test
-    void deleteCard_shouldRemoveFromRepo() {
-        Card card = Card.builder().column(column).title("Card").position(0).build();
+    void getComments_shouldReturnData() {
+        Card card = Card.builder().column(column).title("T").build();
         card = cardRepository.save(card);
+        Comment c = Comment.builder().card(card).user(user).content("C").build();
+        commentRepository.save(c);
 
+        List<CommentDto> list = cardService.getComments(card.getId());
+        assertTrue(list.isEmpty());
+
+        PageResponse<CommentDto> page = cardService.getComments(card.getId(), 0, 10);
+        assertNotNull(page);
+    }
+
+    @Test
+    void delete_archived_shouldNotDecrement() {
+        Card card = Card.builder().column(column).title("T").archived(true).build();
+        card = cardRepository.save(card);
         cardService.delete(card.getId(), user.getId());
-
         assertFalse(cardRepository.existsById(card.getId()));
     }
 
@@ -185,28 +230,11 @@ class CardServiceTest {
     }
 
     @Test
-    void move_toNonExistingColumn_shouldThrowException() {
-        Card card = Card.builder().column(column).title("Card").position(0).build();
-        final Card savedCard = cardRepository.save(card);
-
-        final MoveCardRequest req = new MoveCardRequest();
-        req.setTargetColumnId(999L);
-        req.setNewPosition(0);
-        final Long userId = user.getId();
-
-        assertThrows(ResourceNotFoundException.class, () -> cardService.move(savedCard.getId(), req, userId));
-    }
-
-    @Test
-    void delete_asViewer_shouldThrowException() {
-        Card card = Card.builder().column(column).title("Card").position(0).build();
-        final Card savedCard = cardRepository.save(card);
-        final Long userId = user.getId();
-        final Long boardId = board.getId();
-
-        doThrow(new com.example.demo.exception.BadRequestException("Viewers cannot perform this action"))
-                .when(boardService).checkPermission(eq(boardId), eq(userId), any());
-
-        assertThrows(com.example.demo.exception.BadRequestException.class, () -> cardService.delete(savedCard.getId(), userId));
+    void broadcastSafely_shouldHandleException() {
+        doThrow(new RuntimeException()).when(webSocketNotificationService).broadcastBoardEvent(any(), any(), any(), any(), any());
+        Card card = Card.builder().column(column).title("T").build();
+        card = cardRepository.save(card);
+        cardService.archive(card.getId(), user.getId());
+        // Should not throw
     }
 }

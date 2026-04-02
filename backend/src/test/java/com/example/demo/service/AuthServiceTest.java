@@ -4,301 +4,213 @@ import com.example.demo.dto.AuthRequest;
 import com.example.demo.dto.AuthResponse;
 import com.example.demo.dto.RefreshTokenRequest;
 import com.example.demo.dto.RegisterRequest;
-import com.example.demo.entity.User;
-import com.example.demo.entity.PasswordResetToken;
-import com.example.demo.repository.UserRepository;
-import com.example.demo.repository.PasswordResetTokenRepository;
-import com.example.demo.security.JwtService;
+import com.example.demo.entity.*;
 import com.example.demo.exception.BadRequestException;
-import org.junit.jupiter.api.BeforeEach;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.repository.BoardMemberRepository;
+import com.example.demo.repository.InvitationRepository;
+import com.example.demo.repository.PasswordResetTokenRepository;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.security.JwtService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
-class AuthServiceTest {
+public class AuthServiceTest {
 
-    @Autowired
-    private AuthService authService;
-
-    @Autowired
+    @Mock
     private UserRepository userRepository;
-
-    @Autowired
-    private PasswordResetTokenRepository passwordResetTokenRepository;
-
-    @MockBean
+    @Mock
     private PasswordEncoder passwordEncoder;
-
-    @MockBean
+    @Mock
     private JwtService jwtService;
-
-    @MockBean
+    @Mock
     private AuthenticationManager authenticationManager;
-
-    @MockBean
+    @Mock
+    private InvitationRepository invitationRepository;
+    @Mock
+    private BoardMemberRepository boardMemberRepository;
+    @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+    @Mock
     private EmailService emailService;
 
-    @BeforeEach
-    void setUp() {
-        userRepository.deleteAll();
-        passwordResetTokenRepository.deleteAll();
-    }
+    @InjectMocks
+    private AuthService authService;
 
     @Test
-    void register_withValidData_shouldSuccess() {
+    void register_shouldThrow_whenNameEmpty() {
         RegisterRequest req = new RegisterRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("Password123!");
-        req.setFullName("Test User");
-
-        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
-        when(jwtService.generateAccessToken(any(), anyString())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any(), anyString())).thenReturn("refresh");
-
-        AuthResponse response = authService.register(req);
-
-        assertNotNull(response);
-        assertEquals("test@example.com", response.getUser().getEmail());
-        assertTrue(userRepository.existsByEmail("test@example.com"));
-    }
-
-    @Test
-    void register_withDuplicateEmail_shouldThrowException() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("pass")
-                .fullName("Existing User")
-                .build();
-        userRepository.save(user);
-
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("Password123!");
-        req.setFullName("Test User");
-
+        req.setFullName("");
         assertThrows(BadRequestException.class, () -> authService.register(req));
     }
 
     @Test
-    void register_withInvalidEmailFormat_shouldThrowException() {
+    void register_shouldThrow_whenEmailInvalid() {
         RegisterRequest req = new RegisterRequest();
-        req.setEmail("invalid-email");
-        req.setPassword("Password123!");
-        req.setFullName("Test User");
-
+        req.setFullName("Name");
+        req.setEmail("invalid");
         assertThrows(BadRequestException.class, () -> authService.register(req));
     }
 
     @Test
-    void register_withWeakPassword_shouldThrowException() {
+    void register_shouldThrow_whenEmailExists() {
         RegisterRequest req = new RegisterRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("123");
-        req.setFullName("Test User");
-
+        req.setFullName("Name");
+        req.setEmail("test@ex.com");
+        when(userRepository.existsByEmail("test@ex.com")).thenReturn(true);
         assertThrows(BadRequestException.class, () -> authService.register(req));
     }
 
     @Test
-    void login_withValidCredentials_shouldSuccess() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("encoded")
-                .fullName("Test User")
-                .build();
-        userRepository.save(user);
+    void register_shouldThrow_whenPasswordWeak() {
+        RegisterRequest req = new RegisterRequest();
+        req.setFullName("Name");
+        req.setEmail("test@ex.com");
+        req.setPassword("weak");
+        when(userRepository.existsByEmail("test@ex.com")).thenReturn(false);
+        assertThrows(BadRequestException.class, () -> authService.register(req));
+    }
 
+    @Test
+    void register_shouldSuccess_withPendingInvites() {
+        RegisterRequest req = new RegisterRequest();
+        req.setFullName("Name");
+        req.setEmail("test@ex.com");
+        req.setPassword("Valid123!");
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@ex.com");
+
+        Board board = new Board();
+        board.setId(10L);
+
+        Invitation invite1 = Invitation.builder().id(1L).board(board).role(BoardMember.Role.EDITOR).status(Invitation.InvitationStatus.PENDING).build();
+        Invitation invite2 = Invitation.builder().id(2L).board(board).role(BoardMember.Role.EDITOR).status(Invitation.InvitationStatus.PENDING).expiresAt(LocalDateTime.now().minusDays(1)).build();
+        
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(user);
+        when(invitationRepository.findByEmailAndStatus(anyString(), eq(Invitation.InvitationStatus.PENDING)))
+                .thenReturn(List.of(invite1, invite2));
+        when(boardMemberRepository.existsByBoardIdAndUserId(10L, 1L)).thenReturn(false);
+
+        authService.register(req);
+
+        verify(boardMemberRepository, times(1)).save(any());
+        assertEquals(Invitation.InvitationStatus.ACCEPTED, invite1.getStatus());
+        assertNotEquals(Invitation.InvitationStatus.ACCEPTED, invite2.getStatus());
+    }
+
+    @Test
+    void login_shouldThrow_whenBadCredentials() {
         AuthRequest req = new AuthRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("password");
-
-        when(jwtService.generateAccessToken(any(), anyString())).thenReturn("access");
-        when(jwtService.generateRefreshToken(any(), anyString())).thenReturn("refresh");
-
-        AuthResponse response = authService.login(req);
-
-        assertNotNull(response);
-        assertEquals("test@example.com", response.getUser().getEmail());
-        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-    }
-
-    @Test
-    void login_withWrongPassword_shouldThrowException() {
-        AuthRequest req = new AuthRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("wrong");
-
-        doThrow(new BadCredentialsException("Bad credentials"))
-                .when(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-
+        req.setEmail("e"); req.setPassword("p");
+        when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("err"));
         assertThrows(BadCredentialsException.class, () -> authService.login(req));
     }
 
     @Test
-    void refresh_withValidToken_shouldSuccess() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("encoded")
-                .fullName("Test User")
-                .build();
-        userRepository.save(user);
+    void login_shouldSuccess() {
+        AuthRequest req = new AuthRequest();
+        req.setEmail("test@ex.com"); req.setPassword("pass");
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@ex.com");
 
-        RefreshTokenRequest req = new RefreshTokenRequest();
-        req.setRefreshToken("valid-refresh");
+        when(userRepository.findByEmail("test@ex.com")).thenReturn(Optional.of(user));
+        when(jwtService.generateAccessToken(anyLong(), anyString())).thenReturn("access");
+        when(jwtService.generateRefreshToken(anyLong(), anyString())).thenReturn("refresh");
 
-        when(jwtService.isValid("valid-refresh")).thenReturn(true);
-        when(jwtService.getEmail("valid-refresh")).thenReturn("test@example.com");
-        when(jwtService.generateAccessToken(any(), anyString())).thenReturn("new-access");
-        when(jwtService.generateRefreshToken(any(), anyString())).thenReturn("new-refresh");
+        AuthResponse resp = authService.login(req);
 
-        AuthResponse response = authService.refresh(req);
-
-        assertNotNull(response);
-        assertEquals("new-access", response.getAccessToken());
+        assertNotNull(resp);
+        assertEquals("access", resp.getAccessToken());
     }
 
     @Test
-    void refresh_withInvalidToken_shouldThrowException() {
+    void refresh_shouldThrow_whenInvalid() {
         RefreshTokenRequest req = new RefreshTokenRequest();
-        req.setRefreshToken("invalid-token");
-
-        when(jwtService.isValid("invalid-token")).thenReturn(false);
-
+        req.setRefreshToken("bad");
+        when(jwtService.isValid("bad")).thenReturn(false);
         assertThrows(BadRequestException.class, () -> authService.refresh(req));
     }
 
     @Test
-    void forgotPassword_withExistingEmail_shouldSendEmail() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("encoded")
-                .fullName("Test User")
-                .build();
-        userRepository.saveAndFlush(user);
+    void refresh_shouldSuccess() {
+        RefreshTokenRequest req = new RefreshTokenRequest();
+        req.setRefreshToken("good");
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("e");
 
-        authService.forgotPassword("test@example.com");
+        when(jwtService.isValid("good")).thenReturn(true);
+        when(jwtService.getEmail("good")).thenReturn("e");
+        when(userRepository.findByEmail("e")).thenReturn(Optional.of(user));
 
-        assertTrue(passwordResetTokenRepository.findAll().stream().anyMatch(t -> t.getEmail().equals("test@example.com")));
-        verify(emailService).sendPasswordResetEmail(eq("test@example.com"), anyString());
+        authService.refresh(req);
+        verify(jwtService).generateAccessToken(anyLong(), anyString());
     }
 
     @Test
-    void forgotPassword_withNonExistingEmail_shouldNotSendEmail() {
-        authService.forgotPassword("non-existing@example.com");
-
-        assertFalse(passwordResetTokenRepository.findAll().stream().anyMatch(t -> t.getEmail().equals("non-existing@example.com")));
-        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
+    void forgotPassword_shouldReturnSilently_whenUserMissing() {
+        when(userRepository.existsByEmail("e")).thenReturn(false);
+        authService.forgotPassword("e");
+        verify(passwordResetTokenRepository, never()).save(any());
     }
 
     @Test
-    void resetPassword_withValidToken_shouldSuccess() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("old-pass")
-                .fullName("Test User")
-                .build();
-        userRepository.saveAndFlush(user);
-
-        PasswordResetToken token = PasswordResetToken.builder()
-                .token("valid-token")
-                .email("test@example.com")
-                .expiresAt(LocalDateTime.now().plusHours(1))
-                .used(false)
-                .build();
-        passwordResetTokenRepository.saveAndFlush(token);
-
-        when(passwordEncoder.encode("NewPassword123!")).thenReturn("new-encoded");
-
-        authService.resetPassword("valid-token", "NewPassword123!");
-
-        User updatedUser = userRepository.findByEmail("test@example.com").orElseThrow();
-        assertEquals("new-encoded", updatedUser.getPassword());
-        
-        PasswordResetToken usedToken = passwordResetTokenRepository.findByTokenAndUsedFalse("valid-token").isEmpty() 
-            ? passwordResetTokenRepository.findAll().get(0) : null;
-        assertNotNull(usedToken);
-        assertTrue(usedToken.isUsed());
+    void forgotPassword_shouldSuccess() {
+        when(userRepository.existsByEmail("e")).thenReturn(true);
+        when(emailService.sendPasswordResetEmail(anyString(), anyString())).thenReturn(true);
+        authService.forgotPassword("e");
+        verify(passwordResetTokenRepository).deleteByEmail("e");
+        verify(passwordResetTokenRepository).save(any());
     }
 
     @Test
-    void resetPassword_withExpiredToken_shouldThrowException() {
-        PasswordResetToken token = PasswordResetToken.builder()
-                .token("expired-token")
-                .email("test@example.com")
-                .expiresAt(LocalDateTime.now().minusHours(1))
-                .used(false)
-                .build();
-        passwordResetTokenRepository.save(token);
-
-        assertThrows(BadRequestException.class, () -> authService.resetPassword("expired-token", "NewPassword123!"));
+    void resetPassword_shouldThrow_whenTokenInvalid() {
+        when(passwordResetTokenRepository.findByTokenAndUsedFalse("tok")).thenReturn(Optional.empty());
+        assertThrows(BadRequestException.class, () -> authService.resetPassword("tok", "Valid123!"));
     }
 
     @Test
-    void register_withNullFields_shouldThrowException() {
-        RegisterRequest req = new RegisterRequest();
-        assertThrows(BadRequestException.class, () -> authService.register(req));
+    void resetPassword_shouldThrow_whenExpired() {
+        PasswordResetToken token = PasswordResetToken.builder().expiresAt(LocalDateTime.now().minusDays(1)).build();
+        when(passwordResetTokenRepository.findByTokenAndUsedFalse("tok")).thenReturn(Optional.of(token));
+        assertThrows(BadRequestException.class, () -> authService.resetPassword("tok", "Valid123!"));
     }
 
     @Test
-    void login_withNonExistingEmail_shouldThrowException() {
-        AuthRequest req = new AuthRequest();
-        req.setEmail("none@example.com");
-        req.setPassword("password");
+    void resetPassword_shouldSuccess() {
+        PasswordResetToken token = PasswordResetToken.builder().email("e").expiresAt(LocalDateTime.now().plusDays(1)).build();
+        User user = new User();
+        user.setEmail("e");
 
-        doThrow(new BadCredentialsException("Bad credentials"))
-                .when(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        when(passwordResetTokenRepository.findByTokenAndUsedFalse("tok")).thenReturn(Optional.of(token));
+        when(userRepository.findByEmail("e")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode(any())).thenReturn("enc");
 
-        assertThrows(BadCredentialsException.class, () -> authService.login(req));
-    }
+        authService.resetPassword("tok", "Valid123!");
 
-    @Test
-    void resetPassword_alreadyUsed_shouldThrowException() {
-        PasswordResetToken token = PasswordResetToken.builder()
-                .token("used-token")
-                .email("test@example.com")
-                .expiresAt(LocalDateTime.now().plusHours(1))
-                .used(true)
-                .build();
-        passwordResetTokenRepository.saveAndFlush(token);
-
-        assertThrows(BadRequestException.class, () -> authService.resetPassword("used-token", "NewPassword123!"));
-    }
-
-    @Test
-    void forgotPassword_twice_shouldReplaceOldToken() {
-        User user = User.builder()
-                .email("test@example.com")
-                .password("encoded")
-                .fullName("Test User")
-                .build();
-        userRepository.saveAndFlush(user);
-
-        authService.forgotPassword("test@example.com");
-        authService.forgotPassword("test@example.com");
-
-        var tokens = passwordResetTokenRepository.findAll();
-        // Since we are deleting old tokens in the service or just checking the latest
-        // let's check that we have only one active token or whatever the service logic does.
-        // Assuming the service logic is to have one per email.
-        long activeCount = tokens.stream().filter(t -> t.getEmail().equals("test@example.com") && !t.isUsed()).count();
-        assertTrue(activeCount >= 1);
+        verify(userRepository).save(user);
+        assertTrue(token.isUsed());
     }
 }
