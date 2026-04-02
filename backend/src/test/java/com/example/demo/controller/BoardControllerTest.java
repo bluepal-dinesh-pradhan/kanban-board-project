@@ -1,7 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.BoardDto;
-import com.example.demo.dto.BoardRequest;
+import com.example.demo.dto.*;
 import com.example.demo.security.UserPrincipal;
 import com.example.demo.service.ActivityService;
 import com.example.demo.service.BoardService;
@@ -17,6 +16,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -178,5 +179,136 @@ class BoardControllerTest {
         mockMvc.perform(get("/api/boards/1/analytics")
                         .with(user(userPrincipal)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getBoards_withPagination_returns200() throws Exception {
+        when(boardService.getUserBoards(1L, 0, 10)).thenReturn(new com.example.demo.dto.PageResponse<BoardDto>(Collections.emptyList(), 0, 10, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/boards")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getBoard_returns200WithAuth() throws Exception {
+        when(boardService.getBoard(1L, 1L)).thenReturn(new BoardDto());
+
+        mockMvc.perform(get("/api/boards/1")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateBoard_updatesBoard_returns200() throws Exception {
+        BoardUpdateRequest req = new BoardUpdateRequest();
+        req.setTitle("Updated Title");
+
+        when(boardService.updateBoard(eq(1L), any(), anyLong())).thenReturn(new BoardDto());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/boards/1")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getBoardMembers_returns200() throws Exception {
+        when(boardService.getBoardMembers(1L, 1L)).thenReturn(new BoardMembersDto());
+
+        mockMvc.perform(get("/api/boards/1/members")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getColumns_withPagination_returns200() throws Exception {
+        when(boardService.getBoardColumns(1L, 1L, 0, 10)).thenReturn(new com.example.demo.dto.PageResponse<com.example.demo.dto.ColumnDto>(Collections.emptyList(), 0, 10, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/boards/1/columns")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getActivity_returns200() throws Exception {
+        when(activityService.getByBoard(1L)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/boards/1/activity")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getActivity_withPagination_returns200() throws Exception {
+        when(activityService.getByBoard(1L, 0, 10)).thenReturn(new com.example.demo.dto.PageResponse<com.example.demo.dto.ActivityDto>(Collections.emptyList(), 0, 10, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/boards/1/activity")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void cancelInvitation_returns200() throws Exception {
+        mockMvc.perform(delete("/api/boards/1/invitations/2")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void removeMember_returns200() throws Exception {
+        mockMvc.perform(delete("/api/boards/1/members/2")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getStarredBoards_returns200() throws Exception {
+        when(boardService.getStarredBoardIds(1L)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/boards/starred")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void createFromTemplate_returns201() throws Exception {
+        Map<String, String> body = Map.of("title", "Test Board", "template", "kanban");
+        when(boardService.createFromTemplate(anyString(), anyString(), anyString(), anyLong())).thenReturn(new BoardDto());
+
+        mockMvc.perform(post("/api/boards/from-template")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void createFromTemplate_missingTitle_returns400() throws Exception {
+        Map<String, String> body = Map.of("template", "kanban");
+
+        mockMvc.perform(post("/api/boards/from-template")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createFromTemplate_missingTemplate_returns400() throws Exception {
+        Map<String, String> body = Map.of("title", "Test Board");
+
+        mockMvc.perform(post("/api/boards/from-template")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
     }
 }

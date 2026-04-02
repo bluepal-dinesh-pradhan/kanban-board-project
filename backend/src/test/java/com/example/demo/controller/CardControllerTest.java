@@ -1,9 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.ApiResponse;
-import com.example.demo.dto.CardDto;
-import com.example.demo.dto.CardRequest;
-import com.example.demo.dto.MoveCardRequest;
+import com.example.demo.dto.*;
 import com.example.demo.security.UserPrincipal;
 import com.example.demo.service.CardService;
 import com.example.demo.service.CommentService;
@@ -20,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -185,6 +183,120 @@ class CardControllerTest {
         when(commentService.getComments(anyLong())).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/api/cards/1/comments")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateCard_returns200() throws Exception {
+        CardRequest req = new CardRequest();
+        req.setTitle("Updated Card Title");
+
+        when(cardService.update(anyLong(), any(), anyLong())).thenReturn(new CardDto());
+
+        mockMvc.perform(patch("/api/cards/1")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updatePriority_returns200() throws Exception {
+        Map<String, String> body = Map.of("priority", "HIGH");
+        when(cardService.updatePriority(anyLong(), anyString(), anyLong())).thenReturn(new CardDto());
+
+        mockMvc.perform(patch("/api/cards/1/priority")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updatePriority_withoutPriority_returns400() throws Exception {
+        Map<String, String> body = Map.of();
+
+        mockMvc.perform(patch("/api/cards/1/priority")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void assignCard_returns200() throws Exception {
+        Map<String, Long> body = Map.of("assigneeId", 2L);
+        when(cardService.assignCard(anyLong(), anyLong(), anyLong())).thenReturn(new CardDto());
+
+        mockMvc.perform(patch("/api/cards/1/assign")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void duplicateCard_returns201() throws Exception {
+        when(cardService.duplicate(anyLong(), anyLong())).thenReturn(new CardDto());
+
+        mockMvc.perform(post("/api/cards/1/duplicate")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void restoreCard_returns200() throws Exception {
+        when(cardService.restore(anyLong(), anyLong())).thenReturn(new CardDto());
+
+        mockMvc.perform(post("/api/cards/1/restore")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getArchivedCards_returns200() throws Exception {
+        when(cardService.getArchivedCards(anyLong(), anyLong())).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/cards/boards/1/archived")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getComments_withPagination_returns200() throws Exception {
+        when(cardService.getComments(anyLong(), anyInt(), anyInt())).thenReturn(new com.example.demo.dto.PageResponse<CommentDto>(Collections.emptyList(), 0, 10, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/cards/1/comments")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void addComment_returns200() throws Exception {
+        CommentRequest req = new CommentRequest();
+        req.setContent("Test comment");
+        when(commentService.addComment(anyLong(), any(), anyLong())).thenReturn(new CommentDto());
+
+        mockMvc.perform(post("/api/cards/1/comments")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteComment_returns200() throws Exception {
+        mockMvc.perform(delete("/api/cards/boards/1/cards/1/comments/1")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteCard_returns200() throws Exception {
+        mockMvc.perform(delete("/api/cards/1")
                         .with(user(userPrincipal)))
                 .andExpect(status().isOk());
     }
