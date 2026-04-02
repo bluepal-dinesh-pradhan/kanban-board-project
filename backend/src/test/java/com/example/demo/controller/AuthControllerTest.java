@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.AuthRequest;
 import com.example.demo.dto.AuthResponse;
 import com.example.demo.dto.RegisterRequest;
+import com.example.demo.dto.ResetPasswordRequest;
 import com.example.demo.dto.UserDto;
 import com.example.demo.service.AuthService;
 import com.example.demo.exception.BadRequestException;
@@ -17,7 +18,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
+@org.springframework.transaction.annotation.Transactional
 class AuthControllerTest {
 
     @Autowired
@@ -56,6 +58,58 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("access"));
+    }
+
+    @Test
+    void register_withEmptyEmail_shouldReturn400() throws Exception {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("");
+        req.setPassword("Password123!");
+        req.setFullName("Test User");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void register_withEmptyPassword_shouldReturn400() throws Exception {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("test@example.com");
+        req.setPassword("");
+        req.setFullName("Test User");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void register_withInvalidEmailFormat_shouldReturn400() throws Exception {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("invalid-email");
+        req.setPassword("Password123!");
+        req.setFullName("Test User");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void register_withWeakPassword_shouldReturn400() throws Exception {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("test@example.com");
+        req.setPassword("123");
+        req.setFullName("Test User");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -92,20 +146,29 @@ class AuthControllerTest {
     }
 
     @Test
-    void login_withWrongPassword_shouldReturn400() throws Exception {
+    void login_withEmptyFields_shouldReturn400() throws Exception {
+        AuthRequest req = new AuthRequest();
+        req.setEmail("");
+        req.setPassword("");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void login_withWrongPassword_shouldReturn401() throws Exception {
         AuthRequest req = new AuthRequest();
         req.setEmail("test@example.com");
         req.setPassword("wrong");
 
-        // The controller catches BadCredentialsException or AuthService throws a BadRequestException 
-        // Based on AuthController code: it calls authService.login which might throw.
         when(authService.login(any())).thenThrow(new BadCredentialsException("Bad credentials"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest()); // Based on GlobalExceptionHandler which likely handles BadCredentialsException as 401 but AuthController wraps it in BadRequestException sometimes? 
-                // Let's check GlobalExceptionHandler.java
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -117,10 +180,52 @@ class AuthControllerTest {
     }
 
     @Test
+    void forgotPassword_withInvalidEmail_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"invalid\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void resetPassword_shouldReturn200() throws Exception {
         mockMvc.perform(post("/api/auth/reset-password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"token\",\"newPassword\":\"Password123!\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void resetPassword_withExpiredToken_shouldReturn400() throws Exception {
+        doThrow(new BadRequestException("Token expired")).when(authService).resetPassword(any(), any());
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"expired\",\"newPassword\":\"Password123!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void resetPassword_withWeakNewPassword_shouldReturn400() throws Exception {
+        doThrow(new BadRequestException("Weak password")).when(authService).resetPassword(anyString(), eq("123"));
+
+        ResetPasswordRequest req = new ResetPasswordRequest();
+        req.setToken("token");
+        req.setNewPassword("123");
+
+        mockMvc.perform(post("/api/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refresh_withInvalidToken_shouldReturn400() throws Exception {
+        when(authService.refresh(any())).thenThrow(new BadRequestException("Invalid refresh token"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"invalid\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

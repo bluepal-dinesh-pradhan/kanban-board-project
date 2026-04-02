@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -61,6 +62,18 @@ class ColumnControllerTest {
     }
 
     @Test
+    void createColumn_withEmptyName_returns400() throws Exception {
+        ColumnRequest req = new ColumnRequest();
+        req.setTitle("");
+
+        mockMvc.perform(post("/api/boards/1/columns")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateColumn_returns200() throws Exception {
         ColumnUpdateRequest req = new ColumnUpdateRequest();
         req.setTitle("New Title");
@@ -75,10 +88,35 @@ class ColumnControllerTest {
     }
 
     @Test
+    void updateColumn_nonExisting_returns404() throws Exception {
+        when(columnService.update(eq(999L), any(), anyLong()))
+                .thenThrow(new com.example.demo.exception.ResourceNotFoundException("Column not found"));
+
+        ColumnUpdateRequest req = new ColumnUpdateRequest();
+        req.setTitle("Title");
+
+        mockMvc.perform(patch("/api/columns/999")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void deleteColumn_returns200() throws Exception {
         mockMvc.perform(delete("/api/columns/1")
                         .with(user(userPrincipal)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deleteColumn_nonExisting_returns404() throws Exception {
+        doThrow(new com.example.demo.exception.ResourceNotFoundException("Column not found"))
+                .when(columnService).delete(eq(999L), anyLong());
+
+        mockMvc.perform(delete("/api/columns/999")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -91,5 +129,17 @@ class ColumnControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void operationsWithoutAuth_returns401() throws Exception {
+        mockMvc.perform(post("/api/boards/1/columns"))
+                .andExpect(status().isUnauthorized());
+        
+        mockMvc.perform(patch("/api/columns/1"))
+                .andExpect(status().isUnauthorized());
+        
+        mockMvc.perform(delete("/api/columns/1"))
+                .andExpect(status().isUnauthorized());
     }
 }

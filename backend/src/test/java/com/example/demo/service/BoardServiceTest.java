@@ -264,4 +264,52 @@ class BoardServiceTest {
         assertFalse(boardMemberRepository.existsByBoardIdAndUserId(board.getId(), other.getId()));
     }
 
+    @Test
+    void getBoard_whenNotMember_shouldThrowException() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.saveAndFlush(board);
+        
+        User other = User.builder().email("no-member@x.com").password("p").fullName("N").build();
+        other = userRepository.saveAndFlush(other);
+        
+        final Long bId = board.getId();
+        final Long uId = other.getId();
+        assertThrows(BadRequestException.class, () -> boardService.getBoard(bId, uId));
+    }
+
+    @Test
+    void deleteBoard_asEditor_shouldThrowException() {
+        User editor = User.builder().email("editor@x.com").password("p").fullName("E").build();
+        editor = userRepository.saveAndFlush(editor);
+        
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.saveAndFlush(board);
+        
+        BoardMember mem = BoardMember.builder().board(board).user(editor).role(BoardMember.Role.EDITOR).build();
+        boardMemberRepository.saveAndFlush(mem);
+        
+        final Long bId = board.getId();
+        final Long eId = editor.getId();
+        assertThrows(BadRequestException.class, () -> boardService.deleteBoard(bId, eId));
+    }
+
+    @Test
+    void inviteMember_asViewer_shouldThrowException() {
+        User viewer = User.builder().email("viewer@x.com").password("p").fullName("V").build();
+        viewer = userRepository.saveAndFlush(viewer);
+        
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.saveAndFlush(board);
+        
+        BoardMember mem = BoardMember.builder().board(board).user(viewer).role(BoardMember.Role.VIEWER).build();
+        boardMemberRepository.saveAndFlush(mem);
+        
+        InviteRequest req = new InviteRequest();
+        req.setEmail("new@user.com");
+        req.setRole(BoardMember.Role.EDITOR);
+        
+        final Long bId = board.getId();
+        final Long vId = viewer.getId();
+        assertThrows(BadRequestException.class, () -> boardService.inviteMember(bId, req, vId));
+    }
 }
