@@ -175,4 +175,38 @@ class CardServiceTest {
 
         assertFalse(cardRepository.existsById(card.getId()));
     }
+
+    @Test
+    void update_nonExisting_shouldThrowException() {
+        CardRequest req = new CardRequest();
+        req.setTitle("T");
+        final Long userId = user.getId();
+        assertThrows(ResourceNotFoundException.class, () -> cardService.update(999L, req, userId));
+    }
+
+    @Test
+    void move_toNonExistingColumn_shouldThrowException() {
+        Card card = Card.builder().column(column).title("Card").position(0).build();
+        final Card savedCard = cardRepository.save(card);
+
+        final MoveCardRequest req = new MoveCardRequest();
+        req.setTargetColumnId(999L);
+        req.setNewPosition(0);
+        final Long userId = user.getId();
+
+        assertThrows(ResourceNotFoundException.class, () -> cardService.move(savedCard.getId(), req, userId));
+    }
+
+    @Test
+    void delete_asViewer_shouldThrowException() {
+        Card card = Card.builder().column(column).title("Card").position(0).build();
+        final Card savedCard = cardRepository.save(card);
+        final Long userId = user.getId();
+        final Long boardId = board.getId();
+
+        doThrow(new com.example.demo.exception.BadRequestException("Viewers cannot perform this action"))
+                .when(boardService).checkPermission(eq(boardId), eq(userId), any());
+
+        assertThrows(com.example.demo.exception.BadRequestException.class, () -> cardService.delete(savedCard.getId(), userId));
+    }
 }

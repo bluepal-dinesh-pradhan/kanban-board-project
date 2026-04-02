@@ -23,6 +23,7 @@ import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -62,6 +63,16 @@ class CardControllerTest {
     }
 
     @Test
+    void getCard_withNonExistingId_returns404() throws Exception {
+        when(cardService.getCard(eq(999L), anyLong()))
+                .thenThrow(new com.example.demo.exception.ResourceNotFoundException("Card not found"));
+
+        mockMvc.perform(get("/api/cards/999")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void createCard_returns201() throws Exception {
         CardRequest req = new CardRequest();
         req.setTitle("New Card");
@@ -74,6 +85,31 @@ class CardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void createCard_withEmptyTitle_returns400() throws Exception {
+        CardRequest req = new CardRequest();
+        req.setTitle("");
+        req.setColumnId(1L);
+
+        mockMvc.perform(post("/api/cards/boards/1")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateCard_withInvalidData_returns400() throws Exception {
+        CardRequest req = new CardRequest();
+        req.setTitle(""); // empty title
+
+        mockMvc.perform(patch("/api/cards/1")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -90,10 +126,58 @@ class CardControllerTest {
     }
 
     @Test
+    void moveCard_toNonExistingColumn_returns404() throws Exception {
+        MoveCardRequest req = new MoveCardRequest();
+        req.setTargetColumnId(999L);
+        req.setNewPosition(0);
+
+        when(cardService.move(anyLong(), any(), anyLong()))
+                .thenThrow(new com.example.demo.exception.ResourceNotFoundException("Column not found"));
+
+        mockMvc.perform(post("/api/cards/1/move")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void archiveCard_returns200() throws Exception {
         mockMvc.perform(post("/api/cards/1/archive")
                         .with(user(userPrincipal)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void archiveCard_alreadyArchived_returns400() throws Exception {
+        when(cardService.archive(anyLong(), anyLong()))
+                .thenThrow(new com.example.demo.exception.BadRequestException("Card is already archived"));
+
+        mockMvc.perform(post("/api/cards/1/archive")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void addComment_withEmptyContent_returns400() throws Exception {
+        com.example.demo.dto.CommentRequest req = new com.example.demo.dto.CommentRequest();
+        req.setContent("");
+
+        mockMvc.perform(post("/api/cards/1/comments")
+                        .with(user(userPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteComment_nonExisting_returns404() throws Exception {
+        doThrow(new com.example.demo.exception.ResourceNotFoundException("Comment not found"))
+                .when(commentService).deleteComment(anyLong(), anyLong(), anyLong(), anyLong());
+
+        mockMvc.perform(delete("/api/cards/boards/1/cards/1/comments/999")
+                        .with(user(userPrincipal)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -103,5 +187,17 @@ class CardControllerTest {
         mockMvc.perform(get("/api/cards/1/comments")
                         .with(user(userPrincipal)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void operationsWithoutAuth_returns401() throws Exception {
+        mockMvc.perform(get("/api/cards/1"))
+                .andExpect(status().isUnauthorized());
+        
+        mockMvc.perform(post("/api/cards/boards/1"))
+                .andExpect(status().isUnauthorized());
+        
+        mockMvc.perform(delete("/api/cards/1"))
+                .andExpect(status().isUnauthorized());
     }
 }
