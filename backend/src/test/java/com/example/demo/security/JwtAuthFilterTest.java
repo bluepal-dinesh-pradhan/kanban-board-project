@@ -76,4 +76,26 @@ class JwtAuthFilterTest {
         assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(chain).doFilter(req, res);
     }
+
+    @Test
+    void doFilterInternal_withExpiredToken_doesNotSetAuth() throws ServletException, IOException {
+        String token = "expired-token";
+        when(req.getHeader("Authorization")).thenReturn("Bearer " + token);
+        when(jwtService.isValid(token)).thenReturn(false);
+
+        filter.doFilter(req, res, chain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(chain).doFilter(req, res);
+    }
+
+    @Test
+    void doFilterInternal_withInvalidHeader_doesNotSetAuth() throws ServletException, IOException {
+        when(req.getHeader("Authorization")).thenReturn("Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
+
+        filter.doFilter(req, res, chain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(chain).doFilter(req, res);
+    }
 }
