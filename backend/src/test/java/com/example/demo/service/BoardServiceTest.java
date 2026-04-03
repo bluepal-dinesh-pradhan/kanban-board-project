@@ -228,4 +228,180 @@ class BoardServiceTest {
         assertThrows(BadRequestException.class, () -> boardService.checkPermission(bid, uid, BoardMember.Role.OWNER));
         assertThrows(BadRequestException.class, () -> boardService.checkPermission(bid, uid, BoardMember.Role.EDITOR));
     }
+
+    @Test
+    void getBoard_accessDenied_shouldThrow() {
+        Board board = Board.builder().title("Private").owner(owner).build();
+        board = boardRepository.save(board);
+        
+        User other = User.builder().email("other@ex.com").password("p").fullName("O").build();
+        other = userRepository.save(other);
+        
+        final Long bid = board.getId();
+        final Long oid = other.getId();
+        assertThrows(BadRequestException.class, () -> boardService.getBoard(bid, oid));
+    }
+
+    @Test
+    void inviteMember_alreadyInvited_shouldThrow() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        Invitation inv = Invitation.builder()
+                .board(board)
+                .email("guest@ex.com")
+                .role(BoardMember.Role.EDITOR)
+                .invitedBy(owner)
+                .status(Invitation.InvitationStatus.PENDING)
+                .build();
+        invitationRepository.save(inv);
+
+        InviteRequest req = new InviteRequest();
+        req.setEmail("guest@ex.com");
+        req.setRole(BoardMember.Role.EDITOR);
+        
+        final Long bid = board.getId();
+        final Long oid = owner.getId();
+        assertThrows(BadRequestException.class, () -> boardService.inviteMember(bid, req, oid));
+    }
+
+    @Test
+    void removeMember_owner_shouldThrow() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        m = boardMemberRepository.save(m);
+
+        final Long bid = board.getId();
+        final Long mid = m.getId();
+        final Long oid = owner.getId();
+        assertThrows(BadRequestException.class, () -> boardService.removeMember(bid, mid, oid));
+    }
+
+    @Test
+    void getBoardColumns_shouldReturnList() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        BoardColumn col = BoardColumn.builder().board(board).title("Col").position(0).build();
+        boardColumnRepository.save(col);
+
+        List<ColumnDto> cols = boardService.getBoardColumns(board.getId(), owner.getId());
+        assertEquals(1, cols.size());
+    }
+
+    @Test
+    void deleteBoard_shouldWork() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        boardService.deleteBoard(board.getId(), owner.getId());
+        assertFalse(boardRepository.existsById(board.getId()));
+    }
+
+    @Test
+    void create_withCustomBackground_shouldSuccess() {
+        BoardRequest req = new BoardRequest();
+        req.setTitle("Custom BG");
+        req.setBackground("red");
+        BoardDto dto = boardService.create(req, owner.getId());
+        assertEquals("red", dto.getBackground());
+    }
+
+    @Test
+    void inviteMember_emailSendFailure_shouldStillWork() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        when(emailService.sendBoardInvitation(anyString(), anyString(), anyString(), anyString(), anyBoolean()))
+                .thenReturn(false);
+
+        InviteRequest req = new InviteRequest();
+        req.setEmail("new@test.com"); req.setRole(BoardMember.Role.VIEWER);
+
+        InviteResponse resp = boardService.inviteMember(board.getId(), req, owner.getId());
+        assertEquals("INVITED", resp.getStatus());
+        assertFalse(resp.isEmailSent());
+    }
+
+    @Test
+    void getBoardColumns_paged_shouldWork() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        var resp = boardService.getBoardColumns(board.getId(), owner.getId(), 0, 10);
+        assertNotNull(resp);
+    }
+
+    @Test
+    void getBoardMembers_shouldWork() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        board.getMembers().add(m);
+        boardMemberRepository.save(m);
+
+        var resp = boardService.getBoardMembers(board.getId(), owner.getId());
+        assertNotNull(resp);
+        assertEquals(1, resp.getMembers().size());
+    }
+
+    @Test
+    void createFromTemplate_variousTypes_shouldWork() {
+        boardService.createFromTemplate("Scrum", null, "SCRUM", owner.getId());
+        boardService.createFromTemplate("Bug", null, "BUG_TRACKER", owner.getId());
+        boardService.createFromTemplate("Marketing", null, "MARKETING", owner.getId());
+        boardService.createFromTemplate("Personal", null, "PERSONAL", owner.getId());
+        boardService.createFromTemplate("Design", null, "DESIGN", owner.getId());
+        boardService.createFromTemplate("Default", null, "UNKNOWN", owner.getId());
+    }
+
+    @Test
+    void toggleStar_shouldWorkBothWays() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        assertTrue(boardService.toggleStar(board.getId(), owner.getId()));
+        assertTrue(boardService.isStarred(board.getId(), owner.getId()));
+        assertFalse(boardService.toggleStar(board.getId(), owner.getId()));
+        assertFalse(boardService.isStarred(board.getId(), owner.getId()));
+    }
+
+    @Test
+    void getStarredBoardIds_shouldWork() {
+        Board board = Board.builder().title("B").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+        boardService.toggleStar(board.getId(), owner.getId());
+
+        var ids = boardService.getStarredBoardIds(owner.getId());
+        assertFalse(ids.isEmpty());
+        assertEquals(board.getId(), ids.get(0));
+    }
+
+    @Test
+    void updateBoard_shouldChangeTitle() {
+        Board board = Board.builder().title("Old").owner(owner).build();
+        board = boardRepository.save(board);
+        BoardMember m = BoardMember.builder().board(board).user(owner).role(BoardMember.Role.OWNER).build();
+        boardMemberRepository.save(m);
+
+        BoardUpdateRequest req = new BoardUpdateRequest();
+        req.setTitle("New");
+        BoardDto dto = boardService.updateBoard(board.getId(), req, owner.getId());
+        assertEquals("New", dto.getTitle());
+    }
 }
