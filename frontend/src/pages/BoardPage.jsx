@@ -302,8 +302,8 @@ const BoardPage = () => {
   const [selectedPriorities, setSelectedPriorities] = useState([])
 
   const removeMemberMutation = useMutation({
-    mutationFn: async (memberUserId) => {
-      return boardAPI.removeMember(boardId, memberUserId)
+    mutationFn: async (memberId) => {
+      return boardAPI.removeMember(boardId, memberId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['boardMembers', boardId])
@@ -1198,7 +1198,7 @@ const BoardPage = () => {
                               <button
                                 onClick={() => {
                                   if (window.confirm(`Are you sure you want to remove ${member.user.fullName} from this board?`)) {
-                                    removeMemberMutation.mutate(member.user.id)
+                                    removeMemberMutation.mutate(member.id)
                                   }
                                 }}
                                 className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
