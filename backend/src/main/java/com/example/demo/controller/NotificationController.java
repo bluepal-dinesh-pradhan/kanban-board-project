@@ -10,7 +10,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
@@ -27,10 +26,8 @@ public class NotificationController {
             summary = "Get notifications",
             description = "Returns notifications for the authenticated user."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notifications retrieved"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notifications retrieved")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @GetMapping
     public ResponseEntity<ApiResponse<?>> getNotifications(
             @AuthenticationPrincipal UserPrincipal principal,
@@ -48,10 +45,8 @@ public class NotificationController {
             summary = "Get unread count",
             description = "Returns the count of unread notifications."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Unread count retrieved"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Unread count retrieved")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>> getUnreadCount(
             @AuthenticationPrincipal UserPrincipal principal) {
@@ -63,11 +58,9 @@ public class NotificationController {
             summary = "Mark notification as read",
             description = "Marks a single notification as read."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notification marked as read"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid notification id"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Notification marked as read")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid notification id")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @PatchMapping("/{notificationId}/read")
     public ResponseEntity<ApiResponse<Void>> markAsRead(
             @PathVariable Long notificationId,
@@ -80,10 +73,8 @@ public class NotificationController {
             summary = "Mark all notifications as read",
             description = "Marks all notifications for the user as read."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "All notifications marked as read"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "All notifications marked as read")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @PatchMapping("/mark-all-read")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead(
             @AuthenticationPrincipal UserPrincipal principal) {

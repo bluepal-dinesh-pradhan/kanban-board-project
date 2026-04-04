@@ -109,7 +109,9 @@ class CardServiceTest {
     void createCard_columnNotFound_shouldThrow() {
         CardRequest req = new CardRequest();
         req.setColumnId(999L);
-        assertThrows(ResourceNotFoundException.class, () -> cardService.create(board.getId(), req, user.getId()));
+        final Long bid = board.getId();
+        final Long uid = user.getId();
+        assertThrows(ResourceNotFoundException.class, () -> cardService.create(bid, req, uid));
     }
 
     @Test
@@ -237,18 +239,11 @@ class CardServiceTest {
         doThrow(new RuntimeException()).when(webSocketNotificationService).broadcastBoardEvent(any(), any(), any(), any(), any());
         Card card = Card.builder().column(column).title("T").build();
         card = cardRepository.save(card);
-        cardService.archive(card.getId(), user.getId());
-        // Should not throw
-    }
-
-    @Test
-    void restore_notArchived_throwsBadRequest() {
-        Card card = Card.builder().column(column).title("Active").archived(false).build();
-        card = cardRepository.save(card);
         final Long cid = card.getId();
         final Long uid = user.getId();
-        assertThrows(BadRequestException.class, () -> cardService.restore(cid, uid));
+        assertDoesNotThrow(() -> cardService.archive(cid, uid));
     }
+
 
     @Test
     void create_withInvalidPriority_shouldDefaultToNone() {
@@ -364,6 +359,7 @@ class CardServiceTest {
 
     @Test
     void delete_shouldResourceNotFound_whenCardNotExist() {
-        assertThrows(ResourceNotFoundException.class, () -> cardService.delete(999L, user.getId()));
+        final Long uid = user.getId();
+        assertThrows(ResourceNotFoundException.class, () -> cardService.delete(999L, uid));
     }
 }

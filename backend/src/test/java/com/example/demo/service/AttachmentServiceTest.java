@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class AttachmentServiceTest {
+class AttachmentServiceTest {
 
     @Mock
     private AttachmentRepository attachmentRepository;

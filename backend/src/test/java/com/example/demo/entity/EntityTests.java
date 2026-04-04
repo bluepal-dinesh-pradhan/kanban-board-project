@@ -11,11 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class EntityTests {
+class EntityTests {
 
     @Test
-    void testEveryEntity() {
-        // Activity - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    void testActivity() {
         Activity activity = Activity.builder()
                 .id(1L)
                 .board(new Board())
@@ -27,8 +26,10 @@ public class EntityTests {
                 .build();
         assertEquals(1L, activity.getId());
         activity.onCreate();
+    }
 
-        // Attachment - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testAttachment() {
         Attachment attachment = Attachment.builder()
                 .id(1L)
                 .card(new Card())
@@ -41,8 +42,10 @@ public class EntityTests {
                 .build();
         assertEquals("file", attachment.getFileName());
         attachment.onCreate();
+    }
 
-        // Board - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testBoard() {
         Board board = Board.builder()
                 .id(1L)
                 .title("title")
@@ -57,8 +60,10 @@ public class EntityTests {
                 .build();
         assertEquals("title", board.getTitle());
         board.onCreate();
+    }
 
-        // BoardColumn - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testBoardColumn() {
         BoardColumn column = BoardColumn.builder()
                 .id(1L)
                 .board(new Board())
@@ -68,8 +73,10 @@ public class EntityTests {
                 .cards(Collections.emptyList())
                 .build();
         assertEquals(1L, column.getId());
+    }
 
-        // BoardMember - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testBoardMember() {
         BoardMember member = BoardMember.builder()
                 .id(1L)
                 .board(new Board())
@@ -77,8 +84,10 @@ public class EntityTests {
                 .role(BoardMember.Role.OWNER)
                 .build();
         assertEquals(BoardMember.Role.OWNER, member.getRole());
+    }
 
-        // Card - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testCard() {
         Card card = Card.builder()
                 .id(1L)
                 .column(new BoardColumn())
@@ -98,8 +107,10 @@ public class EntityTests {
                 .build();
         assertEquals(Priority.HIGH, card.getPriority());
         card.onCreate();
+    }
 
-        // CardLabel - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testCardLabel() {
         CardLabel label = CardLabel.builder()
                 .id(1L)
                 .card(new Card())
@@ -107,8 +118,10 @@ public class EntityTests {
                 .text("urgent")
                 .build();
         assertEquals("red", label.getColor());
+    }
 
-        // CardReminder - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testCardReminder() {
         CardReminder reminder = CardReminder.builder()
                 .id(1L)
                 .card(new Card())
@@ -121,8 +134,10 @@ public class EntityTests {
         assertTrue(reminder.isTriggered());
         reminder.onCreate();
         assertEquals("At due time", CardReminder.ReminderType.AT_DUE_TIME.getDisplayName());
+    }
 
-        // Checklist - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testChecklist() {
         Checklist checklist = Checklist.builder()
                 .id(1L)
                 .card(new Card())
@@ -133,8 +148,10 @@ public class EntityTests {
                 .build();
         assertTrue(checklist.isCompleted());
         checklist.onCreate();
+    }
 
-        // Comment - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testComment() {
         Comment comment = Comment.builder()
                 .id(1L)
                 .card(new Card())
@@ -144,8 +161,10 @@ public class EntityTests {
                 .build();
         assertEquals("content", comment.getContent());
         comment.onCreate();
+    }
 
-        // Invitation - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testInvitation() {
         Invitation invitation = Invitation.builder()
                 .id(1L)
                 .board(new Board())
@@ -159,8 +178,10 @@ public class EntityTests {
                 .build();
         assertEquals(Invitation.InvitationStatus.PENDING, invitation.getStatus());
         invitation.onCreate();
+    }
 
-        // Notification - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testNotification() {
         Notification notification = Notification.builder()
                 .id(1L)
                 .user(new User())
@@ -173,8 +194,10 @@ public class EntityTests {
                 .build();
         assertTrue(notification.isRead());
         notification.onCreate();
+    }
 
-        // PasswordResetToken - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testPasswordResetToken() {
         PasswordResetToken prToken = PasswordResetToken.builder()
                 .id(1L)
                 .token("t")
@@ -184,8 +207,10 @@ public class EntityTests {
                 .build();
         assertFalse(prToken.isExpired());
         assertFalse(prToken.isUsed());
+    }
 
-        // StarredBoard - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testStarredBoard() {
         StarredBoard starred = StarredBoard.builder()
                 .id(1L)
                 .user(new User())
@@ -194,8 +219,10 @@ public class EntityTests {
                 .build();
         assertNotNull(starred.getStarredAt());
         starred.onCreate();
+    }
 
-        // User - @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    @Test
+    void testUser() {
         User user = User.builder()
                 .id(1L)
                 .email("e")

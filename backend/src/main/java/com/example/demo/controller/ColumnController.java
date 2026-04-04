@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
@@ -27,11 +26,9 @@ public class ColumnController {
             summary = "Create column",
             description = "Creates a new column in a board."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Column created"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid board"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Column created")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid board")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @PostMapping("/boards/{boardId}/columns")
     public ResponseEntity<ApiResponse<ColumnDto>> createColumn(
             @PathVariable Long boardId,
@@ -46,11 +43,9 @@ public class ColumnController {
             summary = "Update column",
             description = "Updates column title."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column updated"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid column"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column updated")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Validation error or invalid column")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @PatchMapping("/columns/{columnId}")
     public ResponseEntity<ApiResponse<ColumnDto>> updateColumn(
             @PathVariable Long columnId,
@@ -64,11 +59,9 @@ public class ColumnController {
             summary = "Delete column",
             description = "Permanently deletes a column and all its cards."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column deleted"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid column id or access error"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column deleted")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid column id or access error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @DeleteMapping("/columns/{columnId}")
     public ResponseEntity<ApiResponse<String>> deleteColumn(
             @PathVariable Long columnId,
@@ -82,11 +75,9 @@ public class ColumnController {
             summary = "Move column",
             description = "Reorders a column to a new position."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column moved"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid column id or position"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Column moved")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid column id or position")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @PostMapping("/columns/{columnId}/move")
     public ResponseEntity<ApiResponse<Void>> moveColumn(
             @PathVariable Long columnId,

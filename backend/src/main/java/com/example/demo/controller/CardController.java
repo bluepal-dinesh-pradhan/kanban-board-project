@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
@@ -164,12 +163,10 @@ public class CardController {
             summary = "Delete comment",
             description = "Deletes a comment. Only the comment author or the board owner can delete a comment."
     )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Comment deleted"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Comment not found"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
-    })
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Comment deleted")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Comment not found")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized")
     @DeleteMapping("/boards/{boardId}/cards/{id}/comments/{commentId}")
     public ResponseEntity<ApiResponse<String>> deleteComment(
             @PathVariable Long boardId,
