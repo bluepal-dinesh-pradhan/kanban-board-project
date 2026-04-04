@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class ActivityServiceTest {
+class ActivityServiceTest {
 
     @Mock
     private ActivityRepository activityRepository;

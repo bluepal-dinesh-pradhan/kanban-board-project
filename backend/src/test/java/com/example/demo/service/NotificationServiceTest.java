@@ -28,7 +28,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class NotificationServiceTest {
+class NotificationServiceTest {
 
     @Mock
     private NotificationRepository notificationRepository;

@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class EmailServiceTest {
+class EmailServiceTest {
 
     @Mock
     private JavaMailSender mailSender;

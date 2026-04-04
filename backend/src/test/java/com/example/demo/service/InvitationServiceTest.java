@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class InvitationServiceTest {
+class InvitationServiceTest {
 
     @Mock
     private InvitationRepository invitationRepository;

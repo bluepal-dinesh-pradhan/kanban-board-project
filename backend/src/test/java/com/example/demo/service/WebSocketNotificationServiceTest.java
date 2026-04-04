@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class WebSocketNotificationServiceTest {
+class WebSocketNotificationServiceTest {
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
