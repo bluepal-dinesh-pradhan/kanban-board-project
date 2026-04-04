@@ -152,7 +152,8 @@ class BoardServiceTest {
         req.setEmail(owner.getEmail()); req.setRole(BoardMember.Role.EDITOR);
         final Long uid = owner.getId();
 
-        assertThrows(BadRequestException.class, () -> boardService.inviteMember(savedBoard.getId(), req, uid));
+        final Long sid = savedBoard.getId();
+        assertThrows(BadRequestException.class, () -> boardService.inviteMember(sid, req, uid));
     }
 
     @Test
@@ -357,12 +358,21 @@ class BoardServiceTest {
 
     @Test
     void createFromTemplate_variousTypes_shouldWork() {
-        boardService.createFromTemplate("Scrum", null, "SCRUM", owner.getId());
-        boardService.createFromTemplate("Bug", null, "BUG_TRACKER", owner.getId());
-        boardService.createFromTemplate("Marketing", null, "MARKETING", owner.getId());
-        boardService.createFromTemplate("Personal", null, "PERSONAL", owner.getId());
-        boardService.createFromTemplate("Design", null, "DESIGN", owner.getId());
-        boardService.createFromTemplate("Default", null, "UNKNOWN", owner.getId());
+        BoardDto scrum = boardService.createFromTemplate("Scrum", null, "SCRUM", owner.getId());
+        assertNotNull(scrum);
+        assertEquals("Scrum", scrum.getTitle());
+
+        BoardDto bug = boardService.createFromTemplate("Bug", null, "BUG_TRACKER", owner.getId());
+        assertNotNull(bug);
+        assertEquals("Bug", bug.getTitle());
+
+        BoardDto marketing = boardService.createFromTemplate("Marketing", null, "MARKETING", owner.getId());
+        assertNotNull(marketing);
+        assertEquals("Marketing", marketing.getTitle());
+
+        assertNotNull(boardService.createFromTemplate("Personal", null, "PERSONAL", owner.getId()));
+        assertNotNull(boardService.createFromTemplate("Design", null, "DESIGN", owner.getId()));
+        assertNotNull(boardService.createFromTemplate("Default", null, "UNKNOWN", owner.getId()));
     }
 
     @Test

@@ -5,6 +5,8 @@ import com.example.demo.service.AuthService;
 import com.example.demo.exception.BadRequestException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -57,51 +59,18 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.accessToken").value("access"));
     }
 
-    @Test
-    void register_withEmptyEmail_shouldReturn400() throws Exception {
+    @ParameterizedTest
+    @CsvSource({
+        "'', Password123!, Test User",
+        "test@example.com, '', Test User",
+        "invalid-email, Password123!, Test User",
+        "test@example.com, 123, Test User"
+    })
+    void register_withInvalidData_shouldReturn400(String email, String password, String fullName) throws Exception {
         RegisterRequest req = new RegisterRequest();
-        req.setEmail("");
-        req.setPassword("Password123!");
-        req.setFullName("Test User");
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void register_withEmptyPassword_shouldReturn400() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("");
-        req.setFullName("Test User");
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void register_withInvalidEmailFormat_shouldReturn400() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("invalid-email");
-        req.setPassword("Password123!");
-        req.setFullName("Test User");
-
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void register_withWeakPassword_shouldReturn400() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("test@example.com");
-        req.setPassword("123");
-        req.setFullName("Test User");
+        req.setEmail(email);
+        req.setPassword(password);
+        req.setFullName(fullName);
 
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
