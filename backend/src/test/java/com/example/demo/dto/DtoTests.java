@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class DtoTests {
 
     @Test
-    void testEveryDto() {
+    void testActivityAndApiResponse() {
         // ActivityDto - @Data @AllArgsConstructor @NoArgsConstructor
         ActivityDto activityDto = new ActivityDto();
         activityDto.setId(1L);
@@ -33,19 +33,10 @@ class DtoTests {
         apiResponse = ApiResponse.error("error");
         assertFalse(apiResponse.isSuccess());
         assertNotNull(apiResponse.toString());
+    }
 
-        // AttachmentDto - @Data @AllArgsConstructor @NoArgsConstructor
-        AttachmentDto attachmentDto = new AttachmentDto();
-        attachmentDto.setId(1L);
-        attachmentDto.setFileName("file");
-        attachmentDto.setFileType("type");
-        attachmentDto.setFileSize(100L);
-        attachmentDto.setUploadedByName("user");
-        attachmentDto.setUploadedById(1L);
-        attachmentDto.setUploadedAt(LocalDateTime.now());
-        attachmentDto.setDownloadUrl("url");
-        assertNotNull(attachmentDto.toString());
-
+    @Test
+    void testAuthDtos() {
         // AuthRequest - @Data (NoArgsConstructor only by default)
         AuthRequest authRequest = new AuthRequest();
         authRequest.setEmail("email@ex.com");
@@ -58,6 +49,41 @@ class DtoTests {
         assertEquals("access", authResponse.getAccessToken());
         assertNotNull(authResponse.toString());
 
+        // ChangePasswordRequest - @Data @NoArgsConstructor @AllArgsConstructor
+        ChangePasswordRequest cpReq = new ChangePasswordRequest("old", "new");
+        assertEquals("old", cpReq.getCurrentPassword());
+        assertNotNull(cpReq.toString());
+
+        // ForgotPasswordRequest - @Data
+        ForgotPasswordRequest fpReq = new ForgotPasswordRequest();
+        fpReq.setEmail("e");
+        assertEquals("e", fpReq.getEmail());
+        assertNotNull(fpReq.toString());
+
+        // RefreshTokenRequest - @Data
+        RefreshTokenRequest rtReq = new RefreshTokenRequest();
+        rtReq.setRefreshToken("t");
+        assertEquals("t", rtReq.getRefreshToken());
+        assertNotNull(rtReq.toString());
+
+        // RegisterRequest - @Data
+        RegisterRequest regReq = new RegisterRequest();
+        regReq.setEmail("e");
+        regReq.setPassword("p");
+        regReq.setFullName("f");
+        assertEquals("e", regReq.getEmail());
+        assertNotNull(regReq.toString());
+
+        // ResetPasswordRequest - @Data
+        ResetPasswordRequest resReq = new ResetPasswordRequest();
+        resReq.setToken("t");
+        resReq.setNewPassword("p");
+        assertEquals("t", resReq.getToken());
+        assertNotNull(resReq.toString());
+    }
+
+    @Test
+    void testBoardDtos() {
         // BoardDto - @Data @AllArgsConstructor @NoArgsConstructor
         BoardDto boardDto = new BoardDto();
         boardDto.setId(1L);
@@ -107,6 +133,26 @@ class DtoTests {
         boardUpdate.setBackground("b");
         assertNotNull(boardUpdate.toString());
 
+        // MoveColumnRequest - @Data @AllArgsConstructor @NoArgsConstructor
+        MoveColumnRequest mcolReq = new MoveColumnRequest(5);
+        assertEquals(5, mcolReq.getNewPosition());
+        assertNotNull(mcolReq.toString());
+    }
+
+    @Test
+    void testCardAndChecklistDtos() {
+        // AttachmentDto - @Data @AllArgsConstructor @NoArgsConstructor
+        AttachmentDto attachmentDto = new AttachmentDto();
+        attachmentDto.setId(1L);
+        attachmentDto.setFileName("file");
+        attachmentDto.setFileType("type");
+        attachmentDto.setFileSize(100L);
+        attachmentDto.setUploadedByName("user");
+        attachmentDto.setUploadedById(1L);
+        attachmentDto.setUploadedAt(LocalDateTime.now());
+        attachmentDto.setDownloadUrl("url");
+        assertNotNull(attachmentDto.toString());
+
         // CardDto - @Data @AllArgsConstructor @NoArgsConstructor
         CardDto cardDto = new CardDto();
         cardDto.setId(1L);
@@ -150,11 +196,6 @@ class DtoTests {
         cardRequest.setReminderType("type");
         assertNotNull(cardRequest.toString());
 
-        // ChangePasswordRequest - @Data @NoArgsConstructor @AllArgsConstructor
-        ChangePasswordRequest cpReq = new ChangePasswordRequest("old", "new");
-        assertEquals("old", cpReq.getCurrentPassword());
-        assertNotNull(cpReq.toString());
-
         // ChecklistDto - @Data @AllArgsConstructor @NoArgsConstructor
         ChecklistDto checklistDto = new ChecklistDto();
         checklistDto.setId(1L);
@@ -164,6 +205,16 @@ class DtoTests {
         checklistDto.setCreatedAt(LocalDateTime.now());
         assertNotNull(checklistDto.toString());
 
+        // MoveCardRequest - @Data
+        MoveCardRequest mcReq = new MoveCardRequest();
+        mcReq.setTargetColumnId(1L);
+        mcReq.setNewPosition(5);
+        assertEquals(1L, mcReq.getTargetColumnId());
+        assertNotNull(mcReq.toString());
+    }
+
+    @Test
+    void testColumnAndCommentDtos() {
         // ColumnDto - @Data @AllArgsConstructor @NoArgsConstructor
         ColumnDto columnDto = new ColumnDto();
         columnDto.setId(1L);
@@ -197,13 +248,10 @@ class DtoTests {
         commReq.setContent("c");
         assertEquals("c", commReq.getContent());
         assertNotNull(commReq.toString());
+    }
 
-        // ForgotPasswordRequest - @Data
-        ForgotPasswordRequest fpReq = new ForgotPasswordRequest();
-        fpReq.setEmail("e");
-        assertEquals("e", fpReq.getEmail());
-        assertNotNull(fpReq.toString());
-
+    @Test
+    void testInvitationAndNotificationDtos() {
         // InvitationAcceptResponse - @Data @NoArgsConstructor @AllArgsConstructor
         InvitationAcceptResponse iaRes = new InvitationAcceptResponse(1L);
         assertEquals(1L, iaRes.getBoardId());
@@ -247,23 +295,6 @@ class DtoTests {
         assertTrue(invRes.isEmailSent());
         assertNotNull(invRes.toString());
 
-        // LabelDto - @Data @AllArgsConstructor @NoArgsConstructor
-        LabelDto lDto = new LabelDto(1L, "c", "t");
-        assertEquals(1L, lDto.getId());
-        assertNotNull(lDto.toString());
-
-        // MoveCardRequest - @Data
-        MoveCardRequest mcReq = new MoveCardRequest();
-        mcReq.setTargetColumnId(1L);
-        mcReq.setNewPosition(5);
-        assertEquals(1L, mcReq.getTargetColumnId());
-        assertNotNull(mcReq.toString());
-
-        // MoveColumnRequest - @Data @AllArgsConstructor @NoArgsConstructor
-        MoveColumnRequest mcolReq = new MoveColumnRequest(5);
-        assertEquals(5, mcolReq.getNewPosition());
-        assertNotNull(mcolReq.toString());
-
         // NotificationDto - @Data @AllArgsConstructor @NoArgsConstructor
         NotificationDto nDto = new NotificationDto();
         nDto.setId(1L);
@@ -287,32 +318,19 @@ class DtoTests {
                 .build();
         assertTrue(npReq.isEmailNotifications());
         assertNotNull(npReq.toString());
+    }
+
+    @Test
+    void testMiscDtos() {
+        // LabelDto - @Data @AllArgsConstructor @NoArgsConstructor
+        LabelDto lDto = new LabelDto(1L, "c", "t");
+        assertEquals(1L, lDto.getId());
+        assertNotNull(lDto.toString());
 
         // PageResponse - Custom NoArgs + AllArgs. NO SETTERS.
         PageResponse<String> pRes = new PageResponse<>(Collections.emptyList(), 0, 10, 0, 0, true, true);
         assertEquals(10, pRes.getSize());
         assertNotNull(pRes.toString());
-
-        // RefreshTokenRequest - @Data
-        RefreshTokenRequest rtReq = new RefreshTokenRequest();
-        rtReq.setRefreshToken("t");
-        assertEquals("t", rtReq.getRefreshToken());
-        assertNotNull(rtReq.toString());
-
-        // RegisterRequest - @Data
-        RegisterRequest regReq = new RegisterRequest();
-        regReq.setEmail("e");
-        regReq.setPassword("p");
-        regReq.setFullName("f");
-        assertEquals("e", regReq.getEmail());
-        assertNotNull(regReq.toString());
-
-        // ResetPasswordRequest - @Data
-        ResetPasswordRequest resReq = new ResetPasswordRequest();
-        resReq.setToken("t");
-        resReq.setNewPassword("p");
-        assertEquals("t", resReq.getToken());
-        assertNotNull(resReq.toString());
 
         // UserDto - @Data @AllArgsConstructor @NoArgsConstructor
         UserDto uDto = new UserDto(1L, "e", "n");

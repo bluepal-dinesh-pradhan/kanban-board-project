@@ -351,8 +351,7 @@ class CardServiceTest {
 
     @Test
     void getArchivedCards_shouldWork() {
-        Card card = Card.builder().column(column).title("T").archived(true).build();
-        card = cardRepository.save(card);
+        cardRepository.save(Card.builder().column(column).title("T").archived(true).build());
         var res = cardService.getArchivedCards(board.getId(), user.getId());
         assertFalse(res.isEmpty());
     }

@@ -75,7 +75,7 @@ class ReminderServiceTest {
         reminderService.processReminders();
 
         verify(notificationService, atLeastOnce()).createDueDateReminder(eq(user.getId()), eq(card.getId()), anyString());
-        verify(emailService, atLeastOnce()).sendDueDateReminder(eq(user.getEmail()), eq(user.getFullName()), eq(card.getTitle()), eq("Board"), eq(card.getDueDate()));
+        verify(emailService, atLeastOnce()).sendDueDateReminder(user.getEmail(), user.getFullName(), card.getTitle(), "Board", card.getDueDate());
         assertTrue(reminder.isTriggered());
         verify(cardReminderRepository, atLeastOnce()).save(reminder);
     }

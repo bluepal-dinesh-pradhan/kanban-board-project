@@ -48,12 +48,12 @@ class AttachmentServiceTest {
     @InjectMocks
     private AttachmentService attachmentService;
 
-    private final String UPLOAD_DIR = "uploads";
+    private final String uploadDir = "uploads";
 
     @BeforeEach
     @AfterEach
     void cleanup() throws IOException {
-        Path uploadPath = Paths.get(UPLOAD_DIR);
+        Path uploadPath = Paths.get(uploadDir);
         if (Files.exists(uploadPath)) {
             Files.walk(uploadPath)
                 .sorted((p1, p2) -> p2.compareTo(p1))
@@ -61,6 +61,7 @@ class AttachmentServiceTest {
                     try {
                         Files.delete(p);
                     } catch (IOException e) {
+                        // Expected exception in test scenario — no action needed
                     }
                 });
         }
@@ -145,8 +146,8 @@ class AttachmentServiceTest {
                 .build();
 
         // Create dummy file
-        Files.createDirectories(Paths.get(UPLOAD_DIR));
-        Files.write(Paths.get(UPLOAD_DIR, "test_stored.txt"), "data".getBytes());
+        Files.createDirectories(Paths.get(uploadDir));
+        Files.write(Paths.get(uploadDir, "test_stored.txt"), "data".getBytes());
 
         when(attachmentRepository.findById(1L)).thenReturn(Optional.of(attachment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -154,7 +155,7 @@ class AttachmentServiceTest {
         attachmentService.delete(1L, 1L);
 
         verify(attachmentRepository).delete(attachment);
-        assertFalse(Files.exists(Paths.get(UPLOAD_DIR, "test_stored.txt")));
+        assertFalse(Files.exists(Paths.get(uploadDir, "test_stored.txt")));
     }
 
     @Test

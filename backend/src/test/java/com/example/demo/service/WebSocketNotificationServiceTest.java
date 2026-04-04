@@ -27,7 +27,7 @@ class WebSocketNotificationServiceTest {
     void sendNotification_shouldSuccess() {
         NotificationDto dto = new NotificationDto();
         assertDoesNotThrow(() -> webSocketNotificationService.sendNotification(1L, dto));
-        verify(messagingTemplate).convertAndSendToUser(eq("1"), eq("/queue/notifications"), eq(dto));
+        verify(messagingTemplate).convertAndSendToUser("1", "/queue/notifications", dto);
     }
 
     @Test
@@ -39,7 +39,7 @@ class WebSocketNotificationServiceTest {
     @Test
     void sendUnreadCount_shouldSuccess() {
         assertDoesNotThrow(() -> webSocketNotificationService.sendUnreadCount(1L, 5L));
-        verify(messagingTemplate).convertAndSendToUser(eq("1"), eq("/queue/unread-count"), eq(5L));
+        verify(messagingTemplate).convertAndSendToUser("1", "/queue/unread-count", 5L);
     }
 
     @Test
